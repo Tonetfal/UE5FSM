@@ -3,20 +3,25 @@
 	"Version": 1,
 	"VersionName": "1.0",
 	"FriendlyName": "Finite State Machine",
-	"Description": "Finite State Machine",
-	"Category": "Other",
+	"Description": "Finite State Machine (FSM) mimicking behavior of Unreal 3 FSM",
+	"Category": "Programming",
 	"CreatedBy": "Jeki",
-	"CreatedByURL": "",
+	"CreatedByURL": "https://github.com/JekiTheMonkey",
 	"DocsURL": "",
 	"MarketplaceURL": "",
 	"SupportURL": "",
 	"CanContainContent": true,
-	"IsBetaVersion": false,
+	"IsBetaVersion": true,
 	"IsExperimentalVersion": false,
 	"Installed": false,
 	"Modules": [
 		{
 			"Name": "FiniteStateMachineModule",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "FiniteStateMachineTests",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		}
