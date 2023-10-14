@@ -47,7 +47,7 @@ public:
 	UFiniteStateMachine();
 
 	//~UActorComponent Interface
-	virtual void OnRegister() override;
+	virtual void Activate(bool bReset) override;
 	virtual void InitializeComponent() override;
 	virtual void UninitializeComponent() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick LevelTick,
@@ -97,8 +97,11 @@ public:
 	 * Push a specified state at a requested label on top of the stack.
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state at.
+	 * @param	bOutPrematureResult output parameter. Boolean to use when you want to use the function result before it
+	 * returns code execution.
 	 */
-	TCoroutine<bool> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = FGameplayTag::EmptyTag);
+	TCoroutine<bool> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = FGameplayTag::EmptyTag,
+		bool* bOutPrematureResult = nullptr);
 
 	/**
 	 * Pop the top-most state from stack.
@@ -198,7 +201,7 @@ private:
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state at.
 	 */
-	TCoroutine<bool> PushState_Implementation(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label);
+	TCoroutine<> PushState_Implementation(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label);
 
 	/**
 	 * Pop the top-most state from stack. Doesn't perform any check.
@@ -211,7 +214,7 @@ private:
 	 * @param	InStateClass state which state action to wait.
 	 * @param	StateAction state action to wait.
 	 */
-	TCoroutine<bool> WaitUntilStateAction(TSubclassOf<UMachineState> InStateClass, EStateAction StateAction) const;
+	TCoroutine<> WaitUntilStateAction(TSubclassOf<UMachineState> InStateClass, EStateAction StateAction) const;
 
 public:
 	/** All the machine states that will be automatically registered on initialization. */

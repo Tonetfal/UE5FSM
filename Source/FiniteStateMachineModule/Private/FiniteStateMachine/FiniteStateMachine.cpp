@@ -38,9 +38,9 @@ UFiniteStateMachine::UFiniteStateMachine()
 	bAutoActivate = true;
 }
 
-void UFiniteStateMachine::OnRegister()
+void UFiniteStateMachine::Activate(bool bReset)
 {
-	Super::OnRegister();
+	Super::Activate(bReset);
 
 	const bool bMyIsActive = IsActive();
 	if (bMyIsActive && HasBeenInitialized() && !bActiveStatesBegan)
@@ -62,12 +62,6 @@ void UFiniteStateMachine::InitializeComponent()
 	for (const TSubclassOf<UMachineState> State : InitialStateClassesToRegister)
 	{
 		RegisterState(State);
-	}
-
-	if (!IsValid(InitialState))
-	{
-		UE_LOG(LogFiniteStateMachine, Warning, TEXT("State machine is missing an initial state."));
-		return;
 	}
 
 	// Can remain nullptr
@@ -127,13 +121,19 @@ bool UFiniteStateMachine::RegisterState(TSubclassOf<UMachineState> InStateClass)
 {
 	if (!IsValid(InStateClass))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Invalid state class."));
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Invalid state class."));
+		return false;
+	}
+
+	if (InStateClass->ClassFlags & CLASS_Abstract)
+	{
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Machine state class is abstract."));
 		return false;
 	}
 
 	if (IsStateRegistered(InStateClass))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("State class [%s] is already registered."), *InStateClass->GetName());
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("State class [%s] is already registered."), *InStateClass->GetName());
 		return false;
 	}
 
@@ -158,14 +158,14 @@ void UFiniteStateMachine::SetInitialState(TSubclassOf<UMachineState> InStateClas
 	{
 		if (!InitialStateClassesToRegister.Contains(InStateClass))
 		{
-			UE_LOG(LogFiniteStateMachine, Error, TEXT("State [%s] is not present in initial states to register list."),
+			UE_LOG(LogFiniteStateMachine, Warning, TEXT("State [%s] is not present in initial states to register list."),
 				*InStateClass->GetName());
 			return;
 		}
 
 		if (!UMachineState::IsLabelTagCorrect(Label))
 		{
-			UE_LOG(LogFiniteStateMachine, Error, TEXT("Label [%s] is of wrong tag hierarchy."), *Label.ToString());
+			UE_LOG(LogFiniteStateMachine, Warning, TEXT("Label [%s] is of wrong tag hierarchy."), *Label.ToString());
 			return;
 		}
 	}
@@ -185,7 +185,7 @@ void UFiniteStateMachine::SetGlobalState(TSubclassOf<UGlobalMachineState> InStat
 	{
 		if (!InitialStateClassesToRegister.Contains(InStateClass))
 		{
-			UE_LOG(LogFiniteStateMachine, Error, TEXT("State [%s] is not present in initial states to register list."),
+			UE_LOG(LogFiniteStateMachine, Warning, TEXT("State [%s] is not present in initial states to register list."),
 				*InStateClass->GetName());
 			return;
 		}
@@ -198,32 +198,33 @@ bool UFiniteStateMachine::GotoState(TSubclassOf<UMachineState> InStateClass, FGa
 {
 	if (!ensure(HasBeenInitialized()))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Impossible to use GotoState before initialization."));
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Impossible to use GotoState before initialization."));
 		return false;
 	}
 
 	if (bModifyingInternalState)
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Impossible to use GotoState while modifying internal state."));
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Impossible to use GotoState while modifying internal state."));
 		return false;
 	}
 
 	if (!IsValid(InStateClass))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Invalid state class."));
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Invalid state class."));
 		return false;
 	}
 
-	if (StatesStack.Contains(InStateClass))
+	// Disallow going to state when it's on the stack, but it's not the top-most one
+	if (ActiveState.IsValid() && ActiveState->GetClass() != InStateClass && StatesStack.Contains(InStateClass))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Impossible to go to state [%s] as it's already present in the "
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Impossible to go to state [%s] as it's already present in the "
 			"states stack."), *GetNameSafe(InStateClass));
 		return false;
 	}
 
 	if (!IsStateRegistered(InStateClass))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("State [%s] is not registered in state machine."),
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("State [%s] is not registered in state machine."),
 			*InStateClass->GetName());
 		return false;
 	}
@@ -236,7 +237,7 @@ bool UFiniteStateMachine::GotoState(TSubclassOf<UMachineState> InStateClass, FGa
 
 	if (!UMachineState::IsLabelTagCorrect(Label))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Label [%s] is of wrong tag hierarchy."), *Label.ToString());
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Label [%s] is of wrong tag hierarchy."), *Label.ToString());
 		return false;
 	}
 
@@ -248,13 +249,13 @@ bool UFiniteStateMachine::GotoLabel(FGameplayTag Label)
 {
 	if (!ensure(HasBeenInitialized()))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Impossible to use GotoLabel before initialization."));
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Impossible to use GotoLabel before initialization."));
 		return false;
 	}
 
 	if (!ActiveState.IsValid())
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("No state is active."));
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("No state is active."));
 		return false;
 	}
 
@@ -262,36 +263,42 @@ bool UFiniteStateMachine::GotoLabel(FGameplayTag Label)
 	return bResult;
 }
 
-TCoroutine<bool> UFiniteStateMachine::PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label)
+TCoroutine<bool> UFiniteStateMachine::PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label,
+	bool* bOutPrematureResult)
 {
+	if (bOutPrematureResult)
+	{
+		*bOutPrematureResult = false;
+	}
+
 	if (!ensure(HasBeenInitialized()))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Impossible to use PushState before initialization."));
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Impossible to use PushState before initialization."));
 		co_return false;
 	}
 
 	if (bModifyingInternalState)
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Impossible to use PushState while modifying internal state."));
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Impossible to use PushState while modifying internal state."));
 		co_return false;
 	}
 
 	if (!IsValid(InStateClass))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Invalid state class."));
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Invalid state class."));
 		co_return false;
 	}
 
 	if (StatesStack.Contains(InStateClass))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Impossible to push state [%s] as it's already present in the stack."),
-			*GetNameSafe(InStateClass));
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Impossible to push state [%s] as it's already present in the "
+			"stack."), *GetNameSafe(InStateClass));
 		co_return false;
 	}
 
 	if (!IsStateRegistered(InStateClass))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("State [%s] is not registered in state machine."),
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("State [%s] is not registered in state machine."),
 			*InStateClass->GetName());
 		co_return false;
 	}
@@ -304,32 +311,37 @@ TCoroutine<bool> UFiniteStateMachine::PushState(TSubclassOf<UMachineState> InSta
 
 	if (!UMachineState::IsLabelTagCorrect(Label))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Label [%s] is of wrong tag hierarchy."), *Label.ToString());
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Label [%s] is of wrong tag hierarchy."), *Label.ToString());
 		co_return false;
 	}
 
-	auto Coroutine = PushState_Implementation(InStateClass, Label);
-	co_await Coroutine;
-	co_return Coroutine.GetResult();
+	if (bOutPrematureResult)
+	{
+		// If PushState_Implementation is called, it means that we always will
+		*bOutPrematureResult = true;
+	}
+
+	co_await PushState_Implementation(InStateClass, Label);
+	co_return true;
 }
 
 bool UFiniteStateMachine::PopState()
 {
 	if (!ensure(HasBeenInitialized()))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Impossible to use PopState before initialization."));
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Impossible to use PopState before initialization."));
 		return false;
 	}
 
 	if (bModifyingInternalState)
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Impossible to use PushState while modifying internal state."));
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Impossible to use PushState while modifying internal state."));
 		return false;
 	}
 
 	if (StatesStack.IsEmpty())
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Impossible to pop a state from stack as it's empty."));
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Impossible to pop a state from stack as it's empty."));
 		return false;
 	}
 
@@ -375,28 +387,28 @@ UMachineStateData* UFiniteStateMachine::GetStateData(TSubclassOf<UMachineState> 
 {
 	if (!IsValid(InStateClass))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Invalid state class."));
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Invalid state class."));
 		return nullptr;
 	}
 
 	const UMachineState* FoundState = FindState(InStateClass);
 	if (!IsValid(FoundState))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("State [%s] is not registered in state machine."),
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("State [%s] is not registered in state machine."),
 			*InStateClass->GetName());
 		return nullptr;
 	}
 
 	if (!IsValid(FoundState->BaseStateData))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("State [%s] lacks state data."),
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("State [%s] lacks state data."),
 			*InStateClass->GetName());
 		return nullptr;
 	}
 
 	if (!FoundState->BaseStateData->IsA(InStateDataClass))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("State [%s] data [%s] is not of class [%s]."),
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("State [%s] data [%s] is not of class [%s]."),
 			*InStateClass->GetName(), *FoundState->BaseStateData->GetName(), *InStateDataClass->GetName());
 		return nullptr;
 	}
@@ -446,6 +458,8 @@ UMachineState* UFiniteStateMachine::RegisterState_Implementation(TSubclassOf<UMa
 {
 	AActor* Owner = GetOwner();
 	auto* State = NewObject<UMachineState>(Owner, InStateClass);
+	check(IsValid(State));
+
 	State->SetStateMachine(this);
 
 	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("Machine state [%s] has been registered."), *State->GetName());
@@ -471,7 +485,7 @@ UMachineState* UFiniteStateMachine::FindState(TSubclassOf<UMachineState> InState
 UMachineState* UFiniteStateMachine::FindStateChecked(TSubclassOf<UMachineState> InStateClass) const
 {
 	UMachineState* FoundState = FindState(InStateClass);
-	check(FoundState);
+	check(IsValid(FoundState));
 
 	return FoundState;
 }
@@ -486,29 +500,31 @@ void UFiniteStateMachine::GotoState_Implementation(TSubclassOf<UMachineState> In
 
 	if (ActiveState.IsValid())
 	{
-		// Pop active state from the state stack
+		// Pop active state from the state stack without notifying the state, as we're not explicitely pushing/popping
 		StatesStack.Pop();
-		ActiveState->OnStateAction(EStateAction::Pop);
 	}
 
 	if (ActiveState != State || bForceEvents)
 	{
-		ActiveState->OnStateAction(EStateAction::End, InStateClass);
+		TSubclassOf<UMachineState> PreviousStateClass = nullptr;
+		if (ActiveState.IsValid())
+		{
+			PreviousStateClass = ActiveState->GetClass();
+			ActiveState->OnStateAction(EStateAction::End, InStateClass);
+		}
 
-		const TSubclassOf<UMachineState> PreviousStateClass = ActiveState->GetClass();
 		ActiveState = State;
-
 		ActiveState->OnStateAction(EStateAction::Begin, PreviousStateClass);
 	}
 
-	// Keep track of the stack
+	// Keep track of the stack without notifying the state, as we're not explicitely pushing/popping
 	StatesStack.Push(InStateClass);
 
 	// Tell the active state the requested label
 	ActiveState->GotoLabel(Label);
 }
 
-TCoroutine<bool> UFiniteStateMachine::PushState_Implementation(TSubclassOf<UMachineState> InStateClass,
+TCoroutine<> UFiniteStateMachine::PushState_Implementation(TSubclassOf<UMachineState> InStateClass,
 	FGameplayTag Label)
 {
 	TSubclassOf<UMachineState> PausedStateClass = nullptr;
@@ -524,27 +540,18 @@ TCoroutine<bool> UFiniteStateMachine::PushState_Implementation(TSubclassOf<UMach
 			ActiveState->OnStateAction(EStateAction::Pause);
 		}
 
-		// Keep track of the stack
-		StatesStack.Push(InStateClass);
-
 		// Switch active state
 		UMachineState* State = FindStateChecked(InStateClass);
 		ActiveState = State;
 
-		// Notify new state about the action and requested label
+		// Keep track of the stack; Notify new state about the action and requested label
+		StatesStack.Push(InStateClass);
 		ActiveState->OnStateAction(EStateAction::Push);
 		ActiveState->GotoLabel(Label);
 	}
 
 	// Return code execution only after the paused state gets resumed
-	auto Coroutine = WaitUntilStateAction(PausedStateClass, EStateAction::Resume);
-	co_await Coroutine;
-
-	// Set the resumed state as the active one
-	UMachineState* ResumedState = FindStateChecked(PausedStateClass);
-	ActiveState = ResumedState;
-
-	co_return Coroutine.GetResult();
+	co_await WaitUntilStateAction(PausedStateClass, EStateAction::Resume);
 }
 
 void UFiniteStateMachine::PopState_Implementation()
@@ -572,12 +579,12 @@ void UFiniteStateMachine::PopState_Implementation()
 	ActiveState->OnStateAction(EStateAction::Resume);
 }
 
-TCoroutine<bool> UFiniteStateMachine::WaitUntilStateAction(TSubclassOf<UMachineState> InStateClass,
+TCoroutine<> UFiniteStateMachine::WaitUntilStateAction(TSubclassOf<UMachineState> InStateClass,
 	EStateAction StateAction) const
 {
 	if (!IsValid(InStateClass))
 	{
-		co_return true;
+		co_return;
 	}
 
 	// Wait until the requested state gets the requested state action
@@ -593,10 +600,8 @@ TCoroutine<bool> UFiniteStateMachine::WaitUntilStateAction(TSubclassOf<UMachineS
 		}
 	});
 
-	auto OnReceivedLatent = Latent::UntilDelegate(OnReceived);
-	co_await WhenAll(MoveTemp(OnReceivedLatent));
+	co_await WhenAll(Latent::UntilDelegate(OnReceived));
 
 	// Remove the callback from listeners
 	State->OnStateActionDelegate.Remove(DelegateHandle);
-	co_return true;
 }

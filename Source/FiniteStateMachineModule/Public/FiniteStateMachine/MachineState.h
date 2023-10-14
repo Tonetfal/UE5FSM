@@ -90,6 +90,7 @@ public:
 
 public:
 	UMachineState();
+	virtual ~UMachineState() override;
 
 protected:
 	/**
@@ -269,6 +270,12 @@ protected:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintPure, meta=(CompactNodeTitle="Time Since"))
 	float TimeSince(float Time) const;
+
+	/**
+	 * Get world timer manager.
+	 * @return	Timer manager.
+	 */
+	FTimerManager& GetWorldTimerManager();
 
 public:
 	/** Fired when state action has been performed. */

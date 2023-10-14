@@ -16,6 +16,11 @@ UMachineState::UMachineState()
 	REGISTER_LABEL(Default);
 }
 
+UMachineState::~UMachineState()
+{
+	StopLatentExecution();
+}
+
 void UMachineState::Begin(TSubclassOf<UMachineState> PreviousState)
 {
 	UE_LOG(LogFiniteStateMachine, Verbose, TEXT("[%s] begin."), *GetName());
@@ -58,19 +63,19 @@ bool UMachineState::RegisterLabel(FGameplayTag Label, const FLabelSignature& Cal
 {
 	if (!IsLabelTagCorrect(Label))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Label [%s] is of wrong tag hierarchy."), *Label.ToString());
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Label [%s] is of wrong tag hierarchy."), *Label.ToString());
 		return false;
 	}
 
 	if (!Callback.IsBound())
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Label [%s]'s callback is not bound."), *Label.ToString());
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Label [%s]'s callback is not bound."), *Label.ToString());
 		return false;
 	}
 
 	if (ContainsLabel(Label))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Label [%s] is not present in state [%s]."),
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Label [%s] is not present in state [%s]."),
 			*Label.ToString(), *GetName());
 		return false;
 	}
@@ -166,13 +171,13 @@ bool UMachineState::GotoLabel(FGameplayTag Label)
 {
 	if (!IsLabelTagCorrect(Label))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Label [%s] is of wrong tag hierarchy."), *Label.ToString());
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Label [%s] is of wrong tag hierarchy."), *Label.ToString());
 		return false;
 	}
 
 	if (!ContainsLabel(Label))
 	{
-		UE_LOG(LogFiniteStateMachine, Error, TEXT("Label [%s] is not present in state [%s]."),
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Label [%s] is not present in state [%s]."),
 			*Label.ToString(), *GetName());
 		return false;
 	}
@@ -184,9 +189,7 @@ bool UMachineState::GotoLabel(FGameplayTag Label)
 
 TCoroutine<bool> UMachineState::PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label)
 {
-	auto Coroutime = StateMachine->PushState(InStateClass, Label);
-	co_await Coroutime;
-	co_return Coroutime.GetResult();
+	co_return co_await StateMachine->PushState(InStateClass, Label);
 }
 
 bool UMachineState::PopState()
@@ -216,6 +219,14 @@ float UMachineState::TimeSince(float Time) const
 {
 	const float TimeSince = GetTime() - Time;
 	return TimeSince;
+}
+
+FTimerManager& UMachineState::GetWorldTimerManager()
+{
+	const UWorld* World = GetWorld();
+	check(IsValid(World));
+
+	return World->GetTimerManager();
 }
 
 void UGlobalMachineState::Pushed()
