@@ -473,7 +473,7 @@ UMachineState* UFiniteStateMachine::FindState(TSubclassOf<UMachineState> InState
 	for (const TObjectPtr<UMachineState> State : RegisteredStates)
 	{
 		const TSubclassOf<UMachineState> StateClass = State->GetClass();
-		if (StateClass == InStateClass)
+		if (StateClass->IsChildOf(InStateClass))
 		{
 			return State;
 		}

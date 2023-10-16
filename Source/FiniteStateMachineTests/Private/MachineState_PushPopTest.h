@@ -12,7 +12,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnMachineMessage, FPushPopLatentMessage);
 // Defined inside MachineState_PushPopTest.cpp
 extern FOnMachineMessage OnMessageDelegate;
 
-UCLASS(Abstract)
+UCLASS(Abstract, Hidden)
 class UMachineState_PushPopTest
 	: public UMachineState_Test
 {
@@ -22,9 +22,10 @@ public:
 	UMachineState_PushPopTest();
 
 protected:
+	//~Labels
 	virtual TCoroutine<> Label_Default() override;
-
 	TCoroutine<> Label_Test();
+	//~End of Labels
 
 protected:
 	TSubclassOf<UMachineState_PushPopTest> LatentPushState;

@@ -12,6 +12,7 @@ public class FiniteStateMachineModule : ModuleRules
                 "Core",
                 "GameplayTags",
                 "UE5Coro",
+                "UE5CoroAI",
             }
         );
 

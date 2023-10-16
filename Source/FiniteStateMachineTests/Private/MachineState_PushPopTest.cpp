@@ -6,7 +6,7 @@ FOnMachineMessage OnMessageDelegate;
 
 UMachineState_PushPopTest::UMachineState_PushPopTest()
 {
-	RegisterLabel(TAG_StateMachine_Label_Test, FLabelSignature::CreateUObject(this, &ThisClass::Label_Test));
+	REGISTER_LABEL(Test);
 }
 
 TCoroutine<> UMachineState_PushPopTest::Label_Default()

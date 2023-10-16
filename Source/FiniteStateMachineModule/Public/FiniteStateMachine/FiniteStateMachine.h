@@ -160,6 +160,12 @@ public:
 	 */
 	AActor* GetAvatar() const;
 
+	template<typename T>
+	T* GetAvatar() const;
+
+	template<typename T>
+	T* GetAvatarChecked() const;
+
 private:
 	/**
 	 * Activate initial states.
@@ -282,4 +288,20 @@ T* UFiniteStateMachine::GetStateDataChecked(TSubclassOf<UMachineState> InStateCl
 	check(IsValid(TypedStateData));
 
 	return TypedStateData;
+}
+
+template<typename T>
+T* UFiniteStateMachine::GetAvatar() const
+{
+	AActor* Avatar = GetAvatar();
+	auto* CastedAvatar = Cast<T>(Avatar);
+	return CastedAvatar;
+}
+
+template<typename T>
+T* UFiniteStateMachine::GetAvatarChecked() const
+{
+	auto* CastedAvatar = GetAvatar<T>();
+	check(IsValid(CastedAvatar));
+	return CastedAvatar;
 }

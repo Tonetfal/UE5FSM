@@ -3,6 +3,7 @@
 #include "GameplayTagContainer.h"
 #include "NativeGameplayTags.h"
 #include "UE5Coro.h"
+#include "UE5CoroAI.h"
 #include "UObject/Object.h"
 
 #include "MachineState.generated.h"
@@ -12,7 +13,7 @@ class UMachineStateData;
 
 using namespace UE5Coro;
 
-/** Label tag associated with the default label the states start with if not told otherwise.. */
+/** Label tag associated with the default label the states start with if not told otherwise. */
 FINITESTATEMACHINEMODULE_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Default);
 
 /**
@@ -26,6 +27,23 @@ FINITESTATEMACHINEMODULE_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Lab
 #define REGISTER_LABEL(LABEL_NAME) \
 	RegisterLabel(TAG_StateMachine_Label_ ## LABEL_NAME, \
 		FLabelSignature::CreateUObject(this, &ThisClass::Label_ ## LABEL_NAME));
+
+/**
+ * Utility macro to wrap GotoLabel call, making it easier to type it.
+ */
+#define GOTO_LABEL(LABEL) GotoLabel(TAG_StateMachine_Label_ ## LABEL)
+
+/**
+ * Utility macro to wrap GotoState call, making it easier to type it.
+ */
+#define GOTO_STATE(STATE) GotoState(UMTD_FoeState_ ## STATE ## ::StaticClass())
+
+/**
+ * Utility macro to wrap GotoState call with a label, making it easier to type it.
+ * Also supports a third parameter for bForceEvents. Must be a boolean.
+ */
+#define GOTO_STATE_LABEL(STATE, LABEL, ...) \
+	GotoState(UMTD_FoeState_ ## STATE ## ::StaticClass(), TAG_StateMachine_Label_ ## LABEL, ## __VA_ARGS__)
 
 /**
  * Available actions the state can perform.
@@ -70,7 +88,7 @@ enum class EStateAction : uint8
  * - The data object is created once on state registration, and stays there until the end of the state life cycle.
  * - To define the subclass of the data object you want to use for a particular state use UMachineState::StateDataClass.
  */
-UCLASS(Abstract, ClassGroup=("Finite State Machine"))
+UCLASS(Abstract, Blueprintable, ClassGroup=("Finite State Machine"))
 class FINITESTATEMACHINEMODULE_API UMachineState
 	: public UObject
 {
@@ -283,18 +301,17 @@ public:
 
 protected:
 	/** Class defining state data object to create to manage data of this state. */
+	UPROPERTY(EditDefaultsOnly, Category="Data")
 	TSubclassOf<UMachineStateData> StateDataClass = nullptr;
 
 	/** Reference to the base state data object. It's intended to be up-casted to get the subclasses version. */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="Storage|Debug")
+	UPROPERTY()
 	TObjectPtr<UMachineStateData> BaseStateData = nullptr;
 
 	/** Finite state machine we're managed by. */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="Finite State Machine|Debug")
 	TWeakObjectPtr<UFiniteStateMachine> StateMachine = nullptr;
 
 	/** Label we are currently in. */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category="Finite State Machine|Debug")
 	FGameplayTag ActiveLabel = TAG_StateMachine_Label_Default;
 
 private:

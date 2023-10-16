@@ -115,7 +115,7 @@ UMachineStateData* UMachineState::CreateStateData()
 	check(!IsValid(BaseStateData));
 	check(IsValid(StateDataClass));
 
-	BaseStateData = NewObject<UMachineStateData>(StateMachine.Get(), StateDataClass, NAME_None, RF_Transient);
+	BaseStateData = NewObject<UMachineStateData>(this, StateDataClass, NAME_None, RF_Transient);
 
 	UE_LOG(LogFiniteStateMachine, Verbose, TEXT("Machine state data [%s] for state [%s] has been created."),
 		*BaseStateData->GetName(), *GetName());
