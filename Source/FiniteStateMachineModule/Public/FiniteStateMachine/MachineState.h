@@ -24,26 +24,61 @@ FINITESTATEMACHINEMODULE_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Lab
  *
  * It's encouraged to follow this naming for tags and functions, as it makes code clear and consistant.
  */
-#define REGISTER_LABEL(LABEL_NAME) \
-	RegisterLabel(TAG_StateMachine_Label_ ## LABEL_NAME, \
-		FLabelSignature::CreateUObject(this, &ThisClass::Label_ ## LABEL_NAME));
+#define REGISTER_LABEL(LABEL_NAME) RegisterLabel( \
+	TAG_StateMachine_Label_ ## LABEL_NAME, FLabelSignature::CreateUObject(this, &ThisClass::Label_ ## LABEL_NAME))
 
 /**
- * Utility macro to wrap GotoLabel call, making it easier to type it.
+ * All the GOTO_STATE, GOTO_LABEL, PUSH_STATE and POP_STATE with any variation must be used only inside the labels.
+ * Outside them use the normal functions, as the macro serve as utilities to avoid mistakes in labels, such as missing
+ * co_return and things like that.
  */
-#define GOTO_LABEL(LABEL) GotoLabel(TAG_StateMachine_Label_ ## LABEL)
+
+#define GOTO_STATE_IMPLEMENTATION(STATE_CLASS, LABEL, ...) \
+	if (GotoState(STATE_CLASS, LABEL, ## __VA_ARGS__)) co_return
+
+#define GOTO_STATE(STATE_NAME) \
+	GOTO_STATE_CLASS(UMachineState_ ## STATE_NAME ## ::StaticClass())
+
+#define GOTO_STATE_CLASS(STATE_CLASS) \
+	GOTO_STATE_IMPLEMENTATION(STATE_CLASS, TAG_StateMachine_Label_Default)
+
+#define GOTO_STATE_LABEL(STATE_NAME, LABEL_NAME, ...) \
+	GOTO_STATE_CLASS_LABEL(UMachineState_ ## STATE_NAME ## ::StaticClass(), LABEL_NAME, ## __VA_ARGS__)
+
+#define GOTO_STATE_CLASS_LABEL(STATE_CLASS, LABEL_NAME, ...) \
+	GOTO_STATE_IMPLEMENTATION(STATE_CLASS, TAG_StateMachine_Label_ ## LABEL_NAME, ## __VA_ARGS__)
+
+#define GOTO_LABEL(LABEL_NAME) GotoLabel(TAG_StateMachine_Label_ ## LABEL_NAME)
+
+#define PUSH_STATE_IMPLEMENTATION(STATE_CLASS, LABEL) \
+	RunLatentExecution([this] (TSubclassOf<class UMachineState> InStateClass, FGameplayTag Label) -> TCoroutine<> \
+		{ co_await PushState(InStateClass, Label); }, STATE_CLASS, LABEL)
+
+#define PUSH_STATE(STATE_NAME) \
+	PUSH_STATE_LABEL(UMachineState_ ## STATE_NAME ## ::StaticClass(), Default)
+
+#define PUSH_STATE_LABEL(STATE_NAME, LABEL_NAME) \
+	PUSH_STATE_IMPLEMENTATION(UMachineState_ ## STATE_NAME ## ::StaticClass(), TAG_StateMachine_Label_ ## LABEL_NAME)
+
+#define PUSH_STATE_CLASS(STATE_CLASS) \
+	PUSH_STATE_CLASS_LABEL(STATE_CLASS, Default)
+
+#define PUSH_STATE_CLASS_LABEL(STATE_CLASS, LABEL_NAME) \
+	PUSH_STATE_IMPLEMENTATION(STATE_CLASS, TAG_StateMachine_Label_ ## LABEL_NAME)
+
+#define POP_STATE() if (PopState()) co_return
 
 /**
- * Utility macro to wrap GotoState call, making it easier to type it.
+ * Utility macro to use to pass functions with templated parameters or defaulted parameters you're not willing to change.
+ *
+ * Example:
+ * - LatentExecution(LIFT(AI::AIMoveTo), Controller, Vector);
+ * - LatentExecution(LIFT(AI::AIMoveTo), Controller, Actor);
+ *
+ * Not required for:
+ * - LatentExecution(Latent::Seconds, Controller, Actor);
  */
-#define GOTO_STATE(STATE) GotoState(UMTD_FoeState_ ## STATE ## ::StaticClass())
-
-/**
- * Utility macro to wrap GotoState call with a label, making it easier to type it.
- * Also supports a third parameter for bForceEvents. Must be a boolean.
- */
-#define GOTO_STATE_LABEL(STATE, LABEL, ...) \
-	GotoState(UMTD_FoeState_ ## STATE ## ::StaticClass(), TAG_StateMachine_Label_ ## LABEL, ## __VA_ARGS__)
+#define LIFT(FUNCTION) [] <typename... TArgs> (TArgs&&... Args) { return FUNCTION(Forward<TArgs>(Args)...); }
 
 /**
  * Available actions the state can perform.
