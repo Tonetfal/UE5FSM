@@ -187,9 +187,9 @@ bool UMachineState::GotoLabel(FGameplayTag Label)
 	return true;
 }
 
-TCoroutine<bool> UMachineState::PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label)
+TCoroutine<> UMachineState::PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label)
 {
-	co_return co_await StateMachine->PushState(InStateClass, Label);
+	co_await StateMachine->PushState(InStateClass, Label);
 }
 
 bool UMachineState::PopState()

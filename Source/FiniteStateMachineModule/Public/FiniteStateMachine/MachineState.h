@@ -238,7 +238,7 @@ public:
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state with.
 	 */
-	TCoroutine<bool> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = FGameplayTag::EmptyTag);
+	TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = FGameplayTag::EmptyTag);
 
 	/**
 	 * Pop the top-most state from stack.

@@ -100,7 +100,7 @@ public:
 	 * @param	bOutPrematureResult output parameter. Boolean to use when you want to use the function result before it
 	 * returns code execution.
 	 */
-	TCoroutine<bool> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = FGameplayTag::EmptyTag,
+	TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = FGameplayTag::EmptyTag,
 		bool* bOutPrematureResult = nullptr);
 
 	/**

@@ -263,7 +263,7 @@ bool UFiniteStateMachine::GotoLabel(FGameplayTag Label)
 	return bResult;
 }
 
-TCoroutine<bool> UFiniteStateMachine::PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label,
+TCoroutine<> UFiniteStateMachine::PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label,
 	bool* bOutPrematureResult)
 {
 	if (bOutPrematureResult)
@@ -274,33 +274,36 @@ TCoroutine<bool> UFiniteStateMachine::PushState(TSubclassOf<UMachineState> InSta
 	if (!ensure(HasBeenInitialized()))
 	{
 		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Impossible to use PushState before initialization."));
-		co_return false;
+		co_return;
 	}
 
 	if (bModifyingInternalState)
 	{
 		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Impossible to use PushState while modifying internal state."));
-		co_return false;
+		co_return;
 	}
 
 	if (!IsValid(InStateClass))
 	{
 		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Invalid state class."));
-		co_return false;
+		co_return;
 	}
 
-	if (StatesStack.Contains(InStateClass))
+	if (StatesStack.ContainsByPredicate([InStateClass] (const TSubclassOf<UMachineState> StateClass)
+		{
+			return StateClass->IsChildOf(InStateClass);
+		}))
 	{
 		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Impossible to push state [%s] as it's already present in the "
 			"stack."), *GetNameSafe(InStateClass));
-		co_return false;
+		co_return;
 	}
 
 	if (!IsStateRegistered(InStateClass))
 	{
 		UE_LOG(LogFiniteStateMachine, Warning, TEXT("State [%s] is not registered in state machine."),
 			*InStateClass->GetName());
-		co_return false;
+		co_return;
 	}
 
 	if (!Label.IsValid())
@@ -312,7 +315,7 @@ TCoroutine<bool> UFiniteStateMachine::PushState(TSubclassOf<UMachineState> InSta
 	if (!UMachineState::IsLabelTagCorrect(Label))
 	{
 		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Label [%s] is of wrong tag hierarchy."), *Label.ToString());
-		co_return false;
+		co_return;
 	}
 
 	if (bOutPrematureResult)
@@ -322,7 +325,6 @@ TCoroutine<bool> UFiniteStateMachine::PushState(TSubclassOf<UMachineState> InSta
 	}
 
 	co_await PushState_Implementation(InStateClass, Label);
-	co_return true;
 }
 
 bool UFiniteStateMachine::PopState()
