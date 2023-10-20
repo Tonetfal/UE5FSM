@@ -18,7 +18,8 @@ UMachineState::UMachineState()
 
 UMachineState::~UMachineState()
 {
-	StopLatentExecution();
+	StopRunningLabels();
+	StopLatentExecution_Implementation();
 }
 
 void UMachineState::Begin(TSubclassOf<UMachineState> PreviousState)
@@ -26,17 +27,13 @@ void UMachineState::Begin(TSubclassOf<UMachineState> PreviousState)
 	UE_LOG(LogFiniteStateMachine, Verbose, TEXT("[%s] begin."), *GetName());
 }
 
-void UMachineState::Tick(float DeltaSeconds)
+void UMachineState::End(TSubclassOf<UMachineState> NewState)
 {
-	if (!bLabelActivated)
-	{
-		const FLabelSignature& LabelFunction = RegisteredLabels.FindChecked(ActiveLabel);
-		if (ensure(LabelFunction.IsBound()))
-		{
-			bLabelActivated = true;
-			RunningLabelCoroutines.Add(LabelFunction.Execute());
-		}
-	}
+	UE_LOG(LogFiniteStateMachine, Verbose, TEXT("[%s] end."), *GetName());
+
+	StopRunningLabels();
+	StopLatentExecution_Implementation();
+	ActiveLabel = TAG_StateMachine_Label_Default;
 }
 
 void UMachineState::Pushed()
@@ -47,6 +44,10 @@ void UMachineState::Pushed()
 void UMachineState::Popped()
 {
 	UE_LOG(LogFiniteStateMachine, Verbose, TEXT("[%s] popped."), *GetName());
+
+	StopRunningLabels();
+	StopLatentExecution_Implementation();
+	ActiveLabel = TAG_StateMachine_Label_Default;
 }
 
 void UMachineState::Paused()
@@ -82,27 +83,88 @@ bool UMachineState::RegisterLabel(FGameplayTag Label, const FLabelSignature& Cal
 
 	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("Label [%s] has been registered."), *Label.ToString());
 
-	RegisteredLabels.Add(Label, Callback);
+	const auto CallbackWrapper = FLabelSignature::CreateLambda([Callback, this] () -> TCoroutine<>
+	{
+		co_await Latent::NextTick();
+		co_await Callback.Execute();
+	});
+
+	RegisteredLabels.Add(Label, CallbackWrapper);
 	return true;
 }
 
-void UMachineState::StopLatentExecution()
+int32 UMachineState::StopRunningLabels()
 {
+	int32 StoppedCoroutines = 0;
 	for (FAsyncCoroutine& RunningLabelCoroutine : RunningLabelCoroutines)
 	{
 		RunningLabelCoroutine.Cancel();
+		if (!RunningLabelCoroutine.IsDone())
+		{
+			StoppedCoroutines++;
+		}
 	}
 
 	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("All [%d] running coroutines in state [%s] have been cancelled."),
-		RunningLabelCoroutines.Num(), *GetName());
+		StoppedCoroutines, *GetName());
 	RunningLabelCoroutines.Empty();
+
+	return StoppedCoroutines;
 }
 
-void UMachineState::End(TSubclassOf<UMachineState> NewState)
+int32 UMachineState::ClearInvalidLatentExecutionCancellers()
 {
-	UE_LOG(LogFiniteStateMachine, Verbose, TEXT("[%s] end."), *GetName());
+	const int32 RemovedEntries = RunningLatentExecutions.RemoveAll([](const FSimpleDelegate& Item)
+	{
+		return !Item.IsBound();
+	});
 
-	ActiveLabel = TAG_StateMachine_Label_Default;
+	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("All [%d] running invalid latent execution cancellers in state "
+		"[%s] have been cancelled."), RemovedEntries, *GetName());
+
+	return RemovedEntries;
+}
+
+int32 UMachineState::StopLatentExecution()
+{
+	return StateMachine->StopEveryLatentExecution();
+}
+
+int32 UMachineState::StopLatentExecution_Implementation()
+{
+	int32 StoppedCoroutines = 0;
+	for (FSimpleDelegate& RunningLatentExecution : RunningLatentExecutions)
+	{
+		const bool bExecuted = RunningLatentExecution.ExecuteIfBound();
+		if (bExecuted)
+		{
+			StoppedCoroutines++;
+		}
+	}
+
+	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("All [%d] running secondary coroutines in state [%s] have been "
+		"cancelled."), StoppedCoroutines, *GetName());
+	RunningLatentExecutions.Empty();
+
+	return StoppedCoroutines;
+}
+
+bool UMachineState::IsStateActive() const
+{
+	return StateMachine->IsInState(GetClass());
+}
+
+void UMachineState::Tick(float DeltaSeconds)
+{
+	if (!bLabelActivated)
+	{
+		const FLabelSignature& LabelFunction = RegisteredLabels.FindChecked(ActiveLabel);
+		if (ensure(LabelFunction.IsBound()))
+		{
+			bLabelActivated = true;
+			RunningLabelCoroutines.Add(LabelFunction.Execute());
+		}
+	}
 }
 
 void UMachineState::Initialize()

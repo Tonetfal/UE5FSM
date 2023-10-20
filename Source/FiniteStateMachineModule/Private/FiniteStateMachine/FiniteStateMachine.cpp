@@ -32,7 +32,7 @@ private:
 UFiniteStateMachine::UFiniteStateMachine()
 {
 	PrimaryComponentTick.bCanEverTick = true;
-	PrimaryComponentTick.bStartWithTickEnabled = false;
+	PrimaryComponentTick.bStartWithTickEnabled = false; // Depends on activation state
 
 	bWantsInitializeComponent = true;
 	bAutoActivate = true;
@@ -43,9 +43,48 @@ void UFiniteStateMachine::Activate(bool bReset)
 	Super::Activate(bReset);
 
 	const bool bMyIsActive = IsActive();
+	if (bMyIsActive)
+	{
+		GetWorld()->GetTimerManager().SetTimer(CancellersCleaningTimerHandle, this,
+			&ThisClass::ClearStatesInvalidLatentExecutionCancellers, StateExecutionCancellersClearingInterval, true);
+	}
+	else
+	{
+		GetWorld()->GetTimerManager().ClearTimer(CancellersCleaningTimerHandle);
+	}
+
+	if (bMyIsActive && bActiveStatesBegan)
+	{
+		if (ActiveGlobalState.IsValid())
+		{
+			ActiveGlobalState->OnStateAction(EStateAction::Resume);
+		}
+
+		if (ActiveState.IsValid())
+		{
+			ActiveGlobalState->OnStateAction(EStateAction::Resume);
+		}
+	}
+
 	if (bMyIsActive && HasBeenInitialized() && !bActiveStatesBegan)
 	{
 		BeginActiveStates();
+	}
+
+	if (!bMyIsActive)
+	{
+		if (ActiveGlobalState.IsValid())
+		{
+			ActiveGlobalState->OnStateAction(EStateAction::Pause);
+		}
+
+		if (ActiveState.IsValid())
+		{
+			ActiveGlobalState->OnStateAction(EStateAction::Pause);
+		}
+
+		// If state machine was deactivated, we don't want anything to run
+		StopEveryRunningLabels();
 	}
 
 	SetComponentTickEnabled(bMyIsActive);
@@ -351,6 +390,34 @@ bool UFiniteStateMachine::PopState()
 	return true;
 }
 
+int32 UFiniteStateMachine::StopEveryLatentExecution()
+{
+	int32 StoppedLatentExecutiosn = 0;
+	for (const TObjectPtr<UMachineState> State : RegisteredStates)
+	{
+		StoppedLatentExecutiosn += State->StopLatentExecution_Implementation();
+	}
+
+	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("All [%d] latent executions have been cancelled."),
+		StoppedLatentExecutiosn);
+
+	return StoppedLatentExecutiosn;
+}
+
+int32 UFiniteStateMachine::StopEveryRunningLabels()
+{
+	int32 StoppedLabels  = 0;
+	for (const TObjectPtr<UMachineState> State : RegisteredStates)
+	{
+		StoppedLabels  += State->StopRunningLabels();
+	}
+
+	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("All [%d] running labels have been cancelled."),
+		StoppedLabels);
+
+	return StoppedLabels;
+}
+
 bool UFiniteStateMachine::IsInState(TSubclassOf<UMachineState> InStateClass, bool bCheckStack) const
 {
 	if (!ActiveState.IsValid())
@@ -378,10 +445,46 @@ bool UFiniteStateMachine::IsInState(TSubclassOf<UMachineState> InStateClass, boo
 	}
 }
 
+TSubclassOf<UMachineState> UFiniteStateMachine::GetActiveStateClass() const
+{
+	if (!ActiveState.IsValid())
+	{
+		return nullptr;
+	}
+
+	const TSubclassOf<UMachineState> ActiveStateClass = ActiveState->GetClass();
+	return ActiveStateClass;
+}
+
 bool UFiniteStateMachine::IsStateRegistered(TSubclassOf<UMachineState> InStateClass) const
 {
 	const UMachineState* FoundState = FindState(InStateClass);
 	return !!FoundState;
+}
+
+UMachineState* UFiniteStateMachine::GetState(TSubclassOf<UMachineState> InStateClass) const
+{
+	if (!IsValid(InStateClass))
+	{
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Invalid state class."));
+		return nullptr;
+	}
+
+	UMachineState* FoundState = FindState(InStateClass);
+	if (!IsValid(FoundState))
+	{
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("State [%s] is not registered."), *InStateClass->GetName());
+		return nullptr;
+	}
+
+	if (!FoundState->IsA(InStateClass))
+	{
+		UE_LOG(LogFiniteStateMachine, Warning, TEXT("State [%s] is not of class [%s]."),
+			*InStateClass->GetName(), *InStateClass->GetName());
+		return nullptr;
+	}
+
+	return FoundState;
 }
 
 UMachineStateData* UFiniteStateMachine::GetStateData(TSubclassOf<UMachineState> InStateClass,
@@ -606,4 +709,16 @@ TCoroutine<> UFiniteStateMachine::WaitUntilStateAction(TSubclassOf<UMachineState
 
 	// Remove the callback from listeners
 	State->OnStateActionDelegate.Remove(DelegateHandle);
+}
+
+void UFiniteStateMachine::ClearStatesInvalidLatentExecutionCancellers()
+{
+	int32 RemovedCancellers = 0;
+	for (const TObjectPtr<UMachineState> State : RegisteredStates)
+	{
+		RemovedCancellers += State->ClearInvalidLatentExecutionCancellers();
+	}
+
+	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("All [%d] running invalid latent execution cancellers have been "
+		"cancelled."), RemovedCancellers);
 }

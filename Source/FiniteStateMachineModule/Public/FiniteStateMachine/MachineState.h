@@ -152,16 +152,48 @@ protected:
 	bool RegisterLabel(FGameplayTag Label, const FLabelSignature& Callback);
 
 	/**
-	 * Stop all latent functions (coroutines) in control of this state.
+	 * Stop any latent execution of EVERY state known to the owning state machine. Doesn't interrupt label execution.
+	 * @return	Amount of latent executions stopped.
+	 *
+	 * @note	If a latent execution is terminated while the state is paused, it's not going to carry on the execution
+	 * unlles the state becomes active.
+	 * @see		UMachineState::LatentExecution()
 	 */
-	void StopLatentExecution();
+	int32 StopLatentExecution();
+
+private:
+	/**
+	 * Stop any latent execution of this state. Doesn't interrupt label execution.
+	 * @return	Amount of latent executions stopped.
+	 *
+	 * @note	If a latent execution is terminated while the state is paused, it's not going to carry on the execution
+	 * unlles the state becomes active.
+	 * @see		UMachineState::LatentExecution()
+	 */
+	int32 StopLatentExecution_Implementation();
+
+	/**
+	 * Stop all latent functions (coroutines) in control of this state.
+	 * @return	Amount of latent executions stopped.
+	 */
+	int32 StopRunningLabels();
+
+	/**
+	 * Remove all latent execution cancel delegates that are no longer bound because the latent execution the delegate
+	 * was associated with has terminated before the user has used it.
+	 * @return	Amount of removed invalid latent execution cancellers.
+	 */
+	int32 ClearInvalidLatentExecutionCancellers();
+
+protected:
+	/**
+	 * Check if this state is the active one.
+	 * @return	True if state is active, false otherwise.
+	 */
+	bool IsStateActive() const;
 
 #pragma region UFSM_StateMachine_Contract
 protected:
-	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//~UFSM_StateMachine Contract
-	//
-
 	/**
 	 * Called each frame.
 	 * @param	DeltaSeconds time since last tick.
@@ -195,27 +227,30 @@ private:
 	 * @param	OptionalData optional data client might send.
 	 */
 	void OnStateAction(EStateAction StateAction, void* OptionalData = nullptr);
-
-	//
-	//~End of UFSM_StateMachine Contract
-	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#pragma endregion UFSM_StateMachine_Contract
+#pragma endregion
 
 #pragma region Labels
 protected:
-	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	//~Labels
-	//
-
 	/**
 	 * Default label the state starts with, if not told otherwise.
 	 */
 	virtual TCoroutine<> Label_Default();
+#pragma endregion
 
-	//
-	//~End of Labels
-	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#pragma endregion Labels
+	/**
+	 * Default function to use to run any latent execution from labels.
+	 *
+	 * Example:
+	 * - co_await RunLatentExecution(Latent::NextTick);
+	 * - co_await RunLatentExecution(Latent::Seconds, 5.0);
+	 * - co_await RunLatentExecution(LIFT(AI::AIMoveTo), Controller, Actor);
+	 *
+	 * @param	Function latent function to execute. Result must be co_awaitable.
+	 * @param	Args arguments to pass.
+	 * @see		LIFT()
+	 */
+	template<typename TFunction, typename... TArgs>
+	TCoroutine<> RunLatentExecution(TFunction Function, TArgs&&... Args);
 
 public:
 	/**
@@ -223,6 +258,9 @@ public:
 	 * @param	InStateClass state to go to.
 	 * @param	Label label to start the state with.
 	 * @return	If true, state has been successfully switched, false otherwise.
+	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
+	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
+	 * GotoState).
 	 */
 	bool GotoState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default);
 
@@ -243,6 +281,9 @@ public:
 	/**
 	 * Pop the top-most state from stack.
 	 * @return	If true, a state has been popped, false otherwise.
+	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
+	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
+	 * GotoState).
 	 */
 	bool PopState();
 
@@ -260,6 +301,7 @@ public:
 	 */
 	static bool IsLabelTagCorrect(FGameplayTag Tag);
 
+#pragma region Utilities
 protected:
 	/**
 	 * Get typed owner.
@@ -294,6 +336,7 @@ protected:
 	 * @return	Timer manager.
 	 */
 	FTimerManager& GetWorldTimerManager();
+#pragma endregion
 
 public:
 	/** Fired when state action has been performed. */
@@ -323,7 +366,27 @@ private:
 
 	/** Handles associated with the coroutines used by this state. */
 	TArray<FAsyncCoroutine> RunningLabelCoroutines;
+
+	/** Fired when user wants to cancel all non-label latent executions, such as Sleep, AIMoveTo and others. */
+	TArray<FSimpleDelegate> RunningLatentExecutions;
 };
+
+template<typename TFunction, typename ... TArgs>
+TCoroutine<> UMachineState::RunLatentExecution(TFunction Function, TArgs&&... Args)
+{
+	// Allow user to cancel an awaiter
+	FSimpleDelegate& CancelDelegate = RunningLatentExecutions.AddDefaulted_GetRef();
+	auto Cancelling = Latent::UntilDelegate(CancelDelegate);
+
+	// Create the asked awaiter
+	auto LatentExecution = Function(Forward<TArgs>(Args)...);
+
+	// Wait until either the latent execution terminates or we're explicitly cancelled
+	co_await WhenAny(MoveTemp(LatentExecution), MoveTemp(Cancelling));
+
+	// Wait until the state becomes active (if not already) or invalid
+	co_await Latent::Until([this] { return !IsValid(this) || IsStateActive(); });
+}
 
 template<typename T>
 T* UMachineState::GetOwner() const

@@ -33,7 +33,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogFiniteStateMachine, VeryVerbose, All);
  * - To switch behaviors use GotoState(), PushState(), PopState(), PauseState(), ResumeState(), and GotoLabel().
  * - To access data a state wants to expose, use the GetStateData().
  */
-UCLASS(ClassGroup=("Finite State Machine"), meta=(BlueprintSpawnableComponent))
+UCLASS(Config="Engine", DefaultConfig, ClassGroup=("Finite State Machine"), meta=(BlueprintSpawnableComponent))
 class FINITESTATEMACHINEMODULE_API UFiniteStateMachine
 	: public UActorComponent
 {
@@ -82,6 +82,9 @@ public:
 	 * @param	bForceEvents in case of switching to the same state we're in: If true, fire end & begin events,
 	 * otherwise do not.
 	 * @return	If true, state has been successfully switched, false otherwise.
+	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
+	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
+	 * GotoState).
 	 */
 	bool GotoState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = FGameplayTag::EmptyTag,
 		bool bForceEvents = true);
@@ -90,6 +93,7 @@ public:
 	 * Go to a requested label using the active state.
 	 * @param	Label label to go to.
 	 * @return	If true, label has been activated, false otherwise.
+	 * @note	The requested label will be activated the next tick, if not changed with a subsequent GotoLabel call.
 	 */
 	bool GotoLabel(FGameplayTag Label);
 
@@ -106,8 +110,27 @@ public:
 	/**
 	 * Pop the top-most state from stack.
 	 * @return	If true, a state has been popped, false otherwise.
+	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
+	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
+	 * GotoState).
 	 */
 	bool PopState();
+
+	/**
+	 * Stop any latent execution of EVERY state known to this state machine. Doesn't interrupt label execution.
+	 * @return	Amount of latent executions stopped.
+	 *
+	 * @note	If a latent execution is terminated while the state is paused, it's not going to carry on the execution
+	 * unlles the state becomes active.
+	 * @see		UMachineState::LatentExecution()
+	 */
+	int32 StopEveryLatentExecution();
+
+	/**
+	 * Stop all latent functions (coroutines) of EVERY state that is present on stack regardless of the state.
+	 * @return	Amount of latent executions stopped.
+	 */
+	int32 StopEveryRunningLabels();
 
 	/**
 	 * Check whether a given state is active.
@@ -120,11 +143,40 @@ public:
 	bool IsInState(TSubclassOf<UMachineState> InStateClass, bool bCheckStack = false) const;
 
 	/**
-	 * Check whether a given state is registered in this state machine.
+	 * Get class of the active normal state.
+	 * @return	Class of the active normal state.
+	 */
+	TSubclassOf<UMachineState> GetActiveStateClass() const;
+
+	/**
+	 * Check whether a given state class is registered in this state machine.
 	 * @param	InStateClass state to check against.
 	 * @return	If true, the state is reigstered, false otherwise.
 	 */
 	bool IsStateRegistered(TSubclassOf<UMachineState> InStateClass) const;
+
+	/**
+	 * Get a registered state of a given class.
+	 * @param	InStateClass state class to search retrieve.
+	 * @return	State of the given class. Might be nullptr.
+	 */
+	UMachineState* GetState(TSubclassOf<UMachineState> InStateClass) const;
+
+	/**
+	 * Get a registered state of a given class.
+	 * @tparam	UserClass state class to search retrieve.
+	 * @return	State of the given class. Might be nullptr.
+	 */
+	template<typename UserClass>
+	UserClass* GetState() const;
+
+	/**
+	 * Get a registered state of a given class checked.
+	 * @tparam	UserClass state class to search retrieve.
+	 * @return	State of the given class checked.
+	 */
+	template<typename UserClass>
+	UserClass* GetStateChecked() const;
 
 	/**
 	 * Get data of a given state of a specified type.
@@ -137,21 +189,21 @@ public:
 
 	/**
 	 * Get typed data of a given state.
-	 * @tparam	StateDataClass state data type to search for.
+	 * @tparam	UserClass state data type to search for.
 	 * @param	InStateClass state which data has to be retrieved.
 	 * @return	State data. May be nullptr.
 	 */
-	template<typename StateDataClass>
-	StateDataClass* GetStateData(TSubclassOf<UMachineState> InStateClass) const;
+	template<typename UserClass>
+	UserClass* GetStateData(TSubclassOf<UMachineState> InStateClass) const;
 
 	/**
 	 * Get typed data of a given state checked.
-	 * @tparam	StateDataClass state data type to search for.
+	 * @tparam	UserClass state data type to search for.
 	 * @param	InStateClass state which data has to be retrieved.
 	 * @return	State data checked.
 	 */
-	template<typename StateDataClass>
-	StateDataClass* GetStateDataChecked(TSubclassOf<UMachineState> InStateClass) const;
+	template<typename UserClass>
+	UserClass* GetStateDataChecked(TSubclassOf<UMachineState> InStateClass) const;
 
 	/**
 	 * Get physical actor of the state machine.
@@ -222,10 +274,33 @@ private:
 	 */
 	TCoroutine<> WaitUntilStateAction(TSubclassOf<UMachineState> InStateClass, EStateAction StateAction) const;
 
+	/**
+	 * Remove all latent execution cancel delegates that are no longer bound because the latent execution the delegate
+	 * was associated with has terminated before the user has used it.
+	 * @return	Amount of removed invalid latent execution cancellers.
+	 */
+	void ClearStatesInvalidLatentExecutionCancellers();
+
 public:
 	/** All the machine states that will be automatically registered on initialization. */
 	UPROPERTY(EditDefaultsOnly, Category="State Machine")
 	TArray<TSubclassOf<UMachineState>> InitialStateClassesToRegister;
+
+protected:
+	/** All the registered states. */
+	UPROPERTY(VisibleInstanceOnly, Category="State Machine|Debug")
+	TArray<TObjectPtr<UMachineState>> RegisteredStates;
+
+	/** Active global state. */
+	UPROPERTY(VisibleInstanceOnly, Category="State Machine|Debug")
+	TWeakObjectPtr<UGlobalMachineState> ActiveGlobalState = nullptr;
+
+	/** Active normal state. */
+	UPROPERTY(VisibleInstanceOnly, Category="State Machine|Debug")
+	TWeakObjectPtr<UMachineState> ActiveState = nullptr;
+
+	/** Machine states stack. The top-most is the active one, while all the others are paused. */
+	TArray<TSubclassOf<UMachineState>> StatesStack;
 
 private:
 	/** Global state the state machine is in. If not specified, it won't have any. */
@@ -245,63 +320,76 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category="State Machine", meta=(Categories="StateMachine.Label"))
 	FGameplayTag InitialStateLabel = TAG_StateMachine_Label_Default;
 
-	/** All the registered states. */
-	UPROPERTY(VisibleInstanceOnly, Category="State Machine|Debug")
-	TArray<TObjectPtr<UMachineState>> RegisteredStates;
-
-	/** Active global state. */
-	UPROPERTY(VisibleInstanceOnly, Category="State Machine|Debug")
-	TWeakObjectPtr<UGlobalMachineState> ActiveGlobalState = nullptr;
-
-	/** Active normal state. */
-	UPROPERTY(VisibleInstanceOnly, Category="State Machine|Debug")
-	TWeakObjectPtr<UMachineState> ActiveState = nullptr;
-
-	/** Machine states stack. The top-most is the active one, while all the others are paused. */
-	TArray<TSubclassOf<UMachineState>> StatesStack;
-
 	/** If true, initial states have been activated, false otherwise. */
 	bool bActiveStatesBegan = false;
 
 	/** If true, important internal state is being modified, false otherwise. */
 	bool bModifyingInternalState = false;
+
+	/** Time in seconds it takes to start clearing state execution cancellers. */
+	UPROPERTY(Config)
+	float StateExecutionCancellersClearingInterval = 60.f;
+
+	/** Timer associated with clearing state execution cancellers process. */
+	FTimerHandle CancellersCleaningTimerHandle;
 };
 
-template<typename T>
-T* UFiniteStateMachine::GetStateData(TSubclassOf<UMachineState> InStateClass) const
+template<typename UserClass>
+UserClass* UFiniteStateMachine::GetState() const
 {
-	static_assert(TIsDerivedFrom<T, UMachineStateData>::IsDerived,
+	static_assert(TIsDerivedFrom<UserClass, UMachineState>::IsDerived,
+		"Attempting to pass a templated parameter that is not of UMachineState class.");
+
+	auto* State = GetState(UserClass::StaticClass());
+	auto* TypedState = CastChecked<UserClass>(State);
+	return TypedState;
+}
+
+template<typename UserClass>
+UserClass* UFiniteStateMachine::GetStateChecked() const
+{
+	auto* TypedState = GetState<UserClass>();
+	check(IsValid(TypedState));
+
+	return TypedState;
+}
+
+template<typename UserClass>
+UserClass* UFiniteStateMachine::GetStateData(TSubclassOf<UMachineState> InStateClass) const
+{
+	static_assert(TIsDerivedFrom<UserClass, UMachineStateData>::IsDerived,
 		"Attempting to pass a templated parameter that is not of UMachineStateData class.");
 
-	UMachineStateData* StateData = GetStateData(InStateClass, T::StaticClass());
-	auto* TypedStateData = Cast<T>(StateData);
+	UMachineStateData* StateData = GetStateData(InStateClass, UserClass::StaticClass());
+	auto* TypedStateData = Cast<UserClass>(StateData);
 	return TypedStateData;
 }
 
-template<typename T>
-T* UFiniteStateMachine::GetStateDataChecked(TSubclassOf<UMachineState> InStateClass) const
+template<typename UserClass>
+UserClass* UFiniteStateMachine::GetStateDataChecked(TSubclassOf<UMachineState> InStateClass) const
 {
-	static_assert(TIsDerivedFrom<T, UMachineStateData>::IsDerived,
-		"Attempting to pass a templated parameter that is not of UMachineStateData class.");
-
-	auto* TypedStateData = GetStateData<T>(InStateClass);
+	auto* TypedStateData = GetStateData<UserClass>(InStateClass);
 	check(IsValid(TypedStateData));
 
 	return TypedStateData;
 }
 
-template<typename T>
-T* UFiniteStateMachine::GetAvatar() const
+template<typename UserClass>
+UserClass* UFiniteStateMachine::GetAvatar() const
 {
+	static_assert(TIsDerivedFrom<UserClass, AActor>::IsDerived,
+		"Attempting to pass a templated parameter that is not of AActor class.");
+
 	AActor* Avatar = GetAvatar();
-	auto* CastedAvatar = Cast<T>(Avatar);
-	return CastedAvatar;
+	auto* TypedAvatar = Cast<UserClass>(Avatar);
+	return TypedAvatar;
 }
 
-template<typename T>
-T* UFiniteStateMachine::GetAvatarChecked() const
+template<typename UserClass>
+UserClass* UFiniteStateMachine::GetAvatarChecked() const
 {
-	auto* CastedAvatar = GetAvatar<T>();
-	check(IsValid(CastedAvatar));
-	return CastedAvatar;
+	auto* TypedAvatar = GetAvatar<UserClass>();
+	check(IsValid(TypedAvatar));
+
+	return TypedAvatar;
 }
