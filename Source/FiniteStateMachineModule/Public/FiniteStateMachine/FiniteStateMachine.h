@@ -7,7 +7,7 @@
 
 using namespace UE5Coro;
 
-DECLARE_LOG_CATEGORY_EXTERN(LogFiniteStateMachine, VeryVerbose, All);
+FINITESTATEMACHINEMODULE_API DECLARE_LOG_CATEGORY_EXTERN(LogFiniteStateMachine, VeryVerbose, All);
 
 /**
  * Component to manage Machine States defining behavior of an object in an easy way.
@@ -212,9 +212,19 @@ public:
 	 */
 	AActor* GetAvatar() const;
 
+	/**
+	 * Get typed physical actor of the state machine.
+	 * @return	Typed physical actor. If failed to find the avatar, owner will be returned instead.
+	 * @note	Supports only Controller and PlayerState.
+	 */
 	template<typename T>
 	T* GetAvatar() const;
 
+	/**
+	 * Get typed physical actor of the state machine checked.
+	 * @return	Typed physical actor checked. If failed to find the avatar, owner will be returned instead.
+	 * @note	Supports only Controller and PlayerState.
+	 */
 	template<typename T>
 	T* GetAvatarChecked() const;
 

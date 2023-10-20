@@ -283,7 +283,7 @@ float UMachineState::TimeSince(float Time) const
 	return TimeSince;
 }
 
-FTimerManager& UMachineState::GetWorldTimerManager()
+FTimerManager& UMachineState::GetTimerManager()
 {
 	const UWorld* World = GetWorld();
 	check(IsValid(World));

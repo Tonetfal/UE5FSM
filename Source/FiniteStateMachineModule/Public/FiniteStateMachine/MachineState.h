@@ -335,7 +335,7 @@ protected:
 	 * Get world timer manager.
 	 * @return	Timer manager.
 	 */
-	FTimerManager& GetWorldTimerManager();
+	FTimerManager& GetTimerManager();
 #pragma endregion
 
 public:
