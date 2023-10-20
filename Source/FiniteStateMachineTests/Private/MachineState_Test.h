@@ -4,30 +4,15 @@
 
 #include "MachineState_Test.generated.h"
 
-UCLASS()
-class UMachineState_TestGlobal
-	: public UGlobalMachineState
-{
-	GENERATED_BODY()
-};
+struct FStateMachineTestMessage { TSubclassOf<UMachineState> Class; FString Message; bool bSuccess; };
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnMachineMessage, FStateMachineTestMessage);
 
-DECLARE_DELEGATE_TwoParams(
-	FOnMachineActionSignature,
-	TSubclassOf<UMachineState> MachineState,
-	EStateAction StateAction);
-
-struct FMachineActionPair { TSubclassOf<UMachineState> Class; EStateAction Action; };
+#define BROADCAST_TEST_MESSAGE(MESSAGE, SUCCESS) OnMessageDelegate.Broadcast({ GetClass(), MESSAGE, SUCCESS })
 
 // Defined inside MachineState_Test.cpp
-extern FOnMachineActionSignature ActionDelegate;
-extern TArray<FMachineActionPair> Actions;
+extern FOnMachineMessage OnMessageDelegate;
 
-void StartNewTest();
-
-// Check whether the state actions were in the same order as defined prior to test
-TPair<FString, bool> CompareActions(const TArray<TPair<TSubclassOf<UMachineState>, EStateAction>>& RhsActions);
-
-UCLASS(Abstract)
+UCLASS(Abstract, Hidden)
 class UMachineState_Test
 	: public UMachineState
 {
@@ -37,55 +22,55 @@ protected:
 	virtual void Begin(TSubclassOf<UMachineState> PreviousState) override
 	{
 		Super::Begin(PreviousState);
-		ActionDelegate.Execute(GetClass(), EStateAction::Begin);
+		BROADCAST_TEST_MESSAGE("Begin", true);
 	}
 
 	virtual void End(TSubclassOf<UMachineState> NewState) override
 	{
 		Super::End(NewState);
-		ActionDelegate.Execute(GetClass(), EStateAction::End);
+		BROADCAST_TEST_MESSAGE("End", true);
 	}
 
 	virtual void Pushed() override
 	{
 		Super::Pushed();
-		ActionDelegate.Execute(GetClass(), EStateAction::Push);
+		BROADCAST_TEST_MESSAGE("Pushed", true);
 	}
 
 	virtual void Popped() override
 	{
 		Super::Popped();
-		ActionDelegate.Execute(GetClass(), EStateAction::Pop);
+		BROADCAST_TEST_MESSAGE("Popped", true);
 	}
 
 	virtual void Paused() override
 	{
 		Super::Paused();
-		ActionDelegate.Execute(GetClass(), EStateAction::Pause);
+		BROADCAST_TEST_MESSAGE("Paused", true);
 	}
 
 	virtual void Resumed() override
 	{
 		Super::Resumed();
-		ActionDelegate.Execute(GetClass(), EStateAction::Resume);
+		BROADCAST_TEST_MESSAGE("Resumed", true);
 	}
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_Test1
 	: public UMachineState_Test
 {
 	GENERATED_BODY()
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_Test2
 	: public UMachineState_Test
 {
 	GENERATED_BODY()
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_Test3
 	: public UMachineState_Test
 {

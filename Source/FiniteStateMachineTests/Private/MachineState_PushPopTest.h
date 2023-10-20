@@ -6,12 +6,6 @@
 
 UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Test);
 
-struct FPushPopLatentMessage { TSubclassOf<UMachineState> Class; FString Message; bool bSuccess; };
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnMachineMessage, FPushPopLatentMessage);
-
-// Defined inside MachineState_PushPopTest.cpp
-extern FOnMachineMessage OnMessageDelegate;
-
 UCLASS(Abstract, Hidden)
 class UMachineState_PushPopTest
 	: public UMachineState_Test
@@ -22,6 +16,10 @@ public:
 	UMachineState_PushPopTest();
 
 protected:
+	//~UMachineState_Test Interface
+	virtual void Popped() override;
+	//~End of UMachineState_Test Interface
+
 	//~Labels
 	virtual TCoroutine<> Label_Default() override;
 	TCoroutine<> Label_Test();
@@ -29,11 +27,11 @@ protected:
 
 protected:
 	TSubclassOf<UMachineState_PushPopTest> LatentPushState;
-	bool bLatentPopState = true;
 	bool bNotifyTestFinish = false;
+	bool bCancelLatentExecution = false;
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_PushPopTest3
 	: public UMachineState_PushPopTest
 {
@@ -43,10 +41,11 @@ public:
 	UMachineState_PushPopTest3()
 	{
 		LatentPushState = nullptr;
+		bCancelLatentExecution = true;
 	}
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_PushPopTest2
 	: public UMachineState_PushPopTest
 {
@@ -59,7 +58,7 @@ public:
 	}
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_PushPopTest1
 	: public UMachineState_PushPopTest
 {
