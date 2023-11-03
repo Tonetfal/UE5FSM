@@ -78,7 +78,7 @@ FINITESTATEMACHINEMODULE_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Lab
  * Not required for:
  * - LatentExecution(Latent::Seconds, Controller, Actor);
  */
-#define LIFT(FUNCTION) [] <typename... TArgs> (TArgs&&... Args) { return FUNCTION(Forward<TArgs>(Args)...); }
+#define LIFT(FUNCTION) [this] <typename... TArgs> (TArgs&&... Args) { return FUNCTION(Forward<TArgs>(Args)...); }
 
 /**
  * Available actions the state can perform.
@@ -227,7 +227,8 @@ protected:
 	 */
 	bool IsStateActive() const;
 
-#pragma region UFSM_StateMachine_Contract
+#pragma region UFiniteStateMachine Contract
+
 protected:
 	/**
 	 * Called each frame.

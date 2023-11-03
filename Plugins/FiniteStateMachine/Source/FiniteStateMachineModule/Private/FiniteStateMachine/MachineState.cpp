@@ -1,11 +1,22 @@
 ﻿#include "FiniteStateMachine/MachineState.h"
 
 #include "FiniteStateMachine/FiniteStateMachine.h"
+#include "FiniteStateMachine/FiniteStateMachineTypes.h"
 #include "FiniteStateMachine/MachineStateData.h"
 #include "NativeGameplayTags.h"
 
 UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_StateMachine_Label, "StateMachine.Label");
 UE_DEFINE_GAMEPLAY_TAG(TAG_StateMachine_Label_Default, "StateMachine.Label.Default");
+
+#ifdef FSM_EXTEREME_VERBOSITY
+	#define FSM_EXTEREME_VERBOSITY_STR FString::Printf(TEXT("State [%s] Owner [%s]"), \
+		*GetNameSafe(this), StateMachine.IsValid() ? *GetNameSafe(StateMachine->GetOwner()) : TEXT("Invalid"))
+#else
+	#define FSM_EXTEREME_VERBOSITY_STR TEXT("")
+#endif
+
+#define FSM_LOG(VERBOSITY, MESSAGE, ...) UE_LOG(LogFiniteStateMachine, VERBOSITY, TEXT("%s - %s"), \
+	*FSM_EXTEREME_VERBOSITY_STR, *FString::Printf(TEXT(MESSAGE), ## __VA_ARGS__))
 
 UMachineState::UMachineState()
 {
@@ -24,7 +35,7 @@ UMachineState::~UMachineState()
 
 void UMachineState::Begin(TSubclassOf<UMachineState> PreviousState)
 {
-	UE_LOG(LogFiniteStateMachine, Verbose, TEXT("[%s] begin."), *GetName());
+	// Empty
 }
 
 void UMachineState::End(TSubclassOf<UMachineState> NewState)
@@ -38,13 +49,11 @@ void UMachineState::End(TSubclassOf<UMachineState> NewState)
 
 void UMachineState::Pushed()
 {
-	UE_LOG(LogFiniteStateMachine, Verbose, TEXT("[%s] pushed."), *GetName());
+	// Empty
 }
 
 void UMachineState::Popped()
 {
-	UE_LOG(LogFiniteStateMachine, Verbose, TEXT("[%s] popped."), *GetName());
-
 	StopRunningLabels();
 	StopLatentExecution_Implementation();
 	ActiveLabel = TAG_StateMachine_Label_Default;
@@ -52,75 +61,85 @@ void UMachineState::Popped()
 
 void UMachineState::Paused()
 {
-	UE_LOG(LogFiniteStateMachine, Verbose, TEXT("[%s] paused."), *GetName());
+	// Empty
 }
 
 void UMachineState::Resumed()
 {
-	UE_LOG(LogFiniteStateMachine, Verbose, TEXT("[%s] resumed."), *GetName());
+	// Empty
 }
 
 bool UMachineState::RegisterLabel(FGameplayTag Label, const FLabelSignature& Callback)
 {
 	if (!IsLabelTagCorrect(Label))
 	{
-		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Label [%s] is of wrong tag hierarchy."), *Label.ToString());
+		FSM_LOG(Warning, "Label [%s] is of wrong tag hierarchy.", *Label.ToString());
 		return false;
 	}
 
 	if (!Callback.IsBound())
 	{
-		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Label [%s]'s callback is not bound."), *Label.ToString());
+		FSM_LOG(Warning, "Label [%s]'s callback is not bound.", *Label.ToString());
 		return false;
 	}
 
 	if (ContainsLabel(Label))
 	{
-		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Label [%s] is not present in state [%s]."),
-			*Label.ToString(), *GetName());
+		FSM_LOG(Warning, "Label [%s] is not present in state [%s].", *Label.ToString(), *GetName());
 		return false;
 	}
 
-	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("Label [%s] has been registered."), *Label.ToString());
-
-	const auto CallbackWrapper = FLabelSignature::CreateLambda([Callback, this] () -> TCoroutine<>
-	{
-		co_await Latent::NextTick();
-		co_await Callback.Execute();
-	});
-
-	RegisteredLabels.Add(Label, CallbackWrapper);
+	FSM_LOG(Verbose, "Label [%s] has been registered.", *Label.ToString());
+	RegisteredLabels.Add(Label, Callback);
 	return true;
 }
 
 int32 UMachineState::StopRunningLabels()
 {
 	int32 StoppedCoroutines = 0;
-	for (FAsyncCoroutine& RunningLabelCoroutine : RunningLabelCoroutines)
+	for (auto& [Coroutine, DebugData] : RunningLabels)
 	{
-		RunningLabelCoroutine.Cancel();
-		if (!RunningLabelCoroutine.IsDone())
+		if (Coroutine.IsDone())
 		{
-			StoppedCoroutines++;
+			continue;
 		}
+
+		Coroutine.Cancel();
+		StoppedCoroutines++;
+
+		FSM_LOG(Verbose, "Label [%s] in state [%s] has been stopped.", *DebugData, *GetName());
 	}
 
-	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("All [%d] running coroutines in state [%s] have been cancelled."),
-		StoppedCoroutines, *GetName());
-	RunningLabelCoroutines.Empty();
+	if (StoppedCoroutines > 0)
+	{
+		FSM_LOG(VeryVerbose, "All [%d] running coroutines in state [%s] have been cancelled.",
+			StoppedCoroutines, *GetName());
+	}
+
+	RunningLabels.Empty();
 
 	return StoppedCoroutines;
 }
 
 int32 UMachineState::ClearInvalidLatentExecutionCancellers()
 {
-	const int32 RemovedEntries = RunningLatentExecutions.RemoveAll([](const FSimpleDelegate& Item)
+	const int32 RemovedEntries = RunningLatentExecutions.RemoveAll([this](const FLatentExecution& Item)
 	{
-		return !Item.IsBound();
+		if (!Item.CancelDelegate.IsBound())
+		{
+			FSM_LOG(Verbose, "Secondary coroutine [%s] in state [%s] has been cleared up as it has finished the "
+				"execution.", *Item.DebugData, *GetName());
+			return true;
+		}
+
+		return false;
 	});
 
-	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("All [%d] running invalid latent execution cancellers in state "
-		"[%s] have been cancelled."), RemovedEntries, *GetName());
+	if (RemovedEntries > 0)
+	{
+		FSM_LOG(VeryVerbose, "All [%d] running invalid latent execution cancellers in state [%s] have been cancelled.",
+			RemovedEntries, *GetName());
+	}
 
 	return RemovedEntries;
 }
@@ -128,6 +147,15 @@ int32 UMachineState::ClearInvalidLatentExecutionCancellers()
 int32 UMachineState::StopLatentExecution()
 {
 	return StateMachine->StopEveryLatentExecution();
+	if (!StateMachine.IsValid())
+	{
+		return -1;
+	}
+
+	const int32 Num = StateMachine->StopEveryLatentExecution();
+	StopLatentExecution_Custom();
+	return Num;
+}
 }
 
 int32 UMachineState::StopLatentExecution_Implementation()
@@ -142,8 +170,12 @@ int32 UMachineState::StopLatentExecution_Implementation()
 		}
 	}
 
-	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("All [%d] running secondary coroutines in state [%s] have been "
-		"cancelled."), StoppedCoroutines, *GetName());
+	if (StoppedCoroutines > 0)
+	{
+		FSM_LOG(Verbose, "All [%d] running secondary coroutines in state [%s] have been cancelled.",
+			StoppedCoroutines, *GetName());
+	}
+
 	RunningLatentExecutions.Empty();
 
 	return StoppedCoroutines;
@@ -179,8 +211,7 @@ UMachineStateData* UMachineState::CreateStateData()
 
 	BaseStateData = NewObject<UMachineStateData>(this, StateDataClass, NAME_None, RF_Transient);
 
-	UE_LOG(LogFiniteStateMachine, Verbose, TEXT("Machine state data [%s] for state [%s] has been created."),
-		*BaseStateData->GetName(), *GetName());
+	FSM_LOG(Verbose, "Machine state data [%s] for state [%s] has been created.", *BaseStateData->GetName(), *GetName());
 
 	return BaseStateData;
 }
@@ -203,6 +234,8 @@ void UMachineState::SetInitialLabel(FGameplayTag Label)
 
 void UMachineState::OnStateAction(EStateAction StateAction, void* OptionalData)
 {
+	FSM_LOG(Verbose, "[%s] has been [%s].", *GetName(), *UEnum::GetValueAsString(StateAction));
+
 	switch (StateAction)
 	{
 		case EStateAction::Begin:	Begin(static_cast<UClass*>(OptionalData)); break;
@@ -233,14 +266,13 @@ bool UMachineState::GotoLabel(FGameplayTag Label)
 {
 	if (!IsLabelTagCorrect(Label))
 	{
-		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Label [%s] is of wrong tag hierarchy."), *Label.ToString());
+		FSM_LOG(Warning, "Label [%s] is of wrong tag hierarchy.", *Label.ToString());
 		return false;
 	}
 
 	if (!ContainsLabel(Label))
 	{
-		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Label [%s] is not present in state [%s]."),
-			*Label.ToString(), *GetName());
+		FSM_LOG(Warning, "Label [%s] is not present in state [%s].", *Label.ToString(), *GetName());
 		return false;
 	}
 
@@ -289,28 +321,4 @@ FTimerManager& UMachineState::GetTimerManager()
 	check(IsValid(World));
 
 	return World->GetTimerManager();
-}
-
-void UGlobalMachineState::Pushed()
-{
-	// Disallow usage
-	checkNoEntry();
-}
-
-void UGlobalMachineState::Popped()
-{
-	// Disallow usage
-	checkNoEntry();
-}
-
-void UGlobalMachineState::Paused()
-{
-	// Disallow usage
-	checkNoEntry();
-}
-
-void UGlobalMachineState::Resumed()
-{
-	// Disallow usage
-	checkNoEntry();
 }

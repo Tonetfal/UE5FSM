@@ -7,8 +7,6 @@
 
 using namespace UE5Coro;
 
-FINITESTATEMACHINEMODULE_API DECLARE_LOG_CATEGORY_EXTERN(LogFiniteStateMachine, VeryVerbose, All);
-
 /**
  * Component to manage Machine States defining behavior of an object in an easy way.
  *
