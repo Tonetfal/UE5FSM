@@ -30,6 +30,10 @@
 		{
 			"Name": "UE5Coro",
 			"Enabled": true
+		},
+		{
+			"Name": "UE5CoroAI",
+			"Enabled": true
 		}
 	]
 }

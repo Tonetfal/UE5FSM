@@ -200,10 +200,26 @@ public:
 	 * @tparam	StateClass state which data has to be retrieved.
 	 * @return	State data checked.
 	 */
-	template<typename UserClass>
-	UserClass* GetStateDataChecked(TSubclassOf<UMachineState> InStateClass) const;
 	template<typename StateDataClass, typename StateClass>
 	StateDataClass* GetStateDataChecked() const;
+
+	/**
+	 * Get states stack.
+	 * @return	States stack.
+	 */
+	const TArray<TSubclassOf<UMachineState>>& GetStatesStack() const;
+
+	/**
+	 * Get registered state classes.
+	 * @return	Registered state classes.
+	 */
+	TArray<TSubclassOf<UMachineState>> GetRegisteredStateClasses() const;
+
+	/**
+	 * Get global state class.
+	 * @return	Global state class.
+	 */
+	TSubclassOf<UMachineState> GetGlobalStateClass() const;
 
 	/**
 	 * Get physical actor of the state machine.

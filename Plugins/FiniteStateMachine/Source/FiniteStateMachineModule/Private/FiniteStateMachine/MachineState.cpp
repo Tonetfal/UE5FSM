@@ -33,6 +33,32 @@ UMachineState::~UMachineState()
 	StopLatentExecution_Implementation();
 }
 
+bool UMachineState::IsStateValid() const
+{
+	return IsValid(this) && !bIsDestroyed;
+}
+
+FGameplayTag UMachineState::GetActiveLabel() const
+{
+	return ActiveLabel;
+}
+
+EStateAction UMachineState::GetLastStateAction() const
+{
+	return LastStateAction;
+}
+
+float UMachineState::GetTimeSinceLastStateAction() const
+{
+	const float TimeSinceLastStateAction = GetWorld()->GetTimeSeconds() - LastStateActionTime;
+	return TimeSinceLastStateAction;
+}
+
+FString UMachineState::GetDebugData() const
+{
+	return "";
+}
+
 void UMachineState::Begin(TSubclassOf<UMachineState> PreviousState)
 {
 	// Empty
@@ -262,6 +288,10 @@ void UMachineState::OnStateAction(EStateAction StateAction, void* OptionalData)
 		case EStateAction::Pause:	Paused(); break;
 		default: checkNoEntry();
 	}
+
+	// Save for debug purposes
+	LastStateAction = StateAction;
+	LastStateActionTime = GetWorld()->GetTimeSeconds();
 
 	// Notify about a state action
 	OnStateActionDelegate.Broadcast(StateAction);

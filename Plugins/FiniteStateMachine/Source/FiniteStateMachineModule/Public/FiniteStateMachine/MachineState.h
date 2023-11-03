@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "FiniteStateMachine/FiniteStateMachineTypes.h"
+#include "FiniteStateMachine/GlobalMachineStateInterface.h"
 #include "GameplayTagContainer.h"
 #include "NativeGameplayTags.h"
 #include "UE5Coro.h"
@@ -37,13 +39,13 @@ FINITESTATEMACHINEMODULE_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Lab
 	if (GotoState(STATE_CLASS, LABEL, ## __VA_ARGS__)) co_return
 
 #define GOTO_STATE(STATE_NAME) \
-	GOTO_STATE_CLASS(UMachineState_ ## STATE_NAME ## ::StaticClass())
+	GOTO_STATE_CLASS(STATE_NAME ## ::StaticClass())
 
 #define GOTO_STATE_CLASS(STATE_CLASS) \
 	GOTO_STATE_IMPLEMENTATION(STATE_CLASS, TAG_StateMachine_Label_Default)
 
 #define GOTO_STATE_LABEL(STATE_NAME, LABEL_NAME, ...) \
-	GOTO_STATE_CLASS_LABEL(UMachineState_ ## STATE_NAME ## ::StaticClass(), LABEL_NAME, ## __VA_ARGS__)
+	GOTO_STATE_CLASS_LABEL(STATE_NAME ## ::StaticClass(), LABEL_NAME, ## __VA_ARGS__)
 
 #define GOTO_STATE_CLASS_LABEL(STATE_CLASS, LABEL_NAME, ...) \
 	GOTO_STATE_IMPLEMENTATION(STATE_CLASS, TAG_StateMachine_Label_ ## LABEL_NAME, ## __VA_ARGS__)
@@ -51,14 +53,13 @@ FINITESTATEMACHINEMODULE_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Lab
 #define GOTO_LABEL(LABEL_NAME) GotoLabel(TAG_StateMachine_Label_ ## LABEL_NAME)
 
 #define PUSH_STATE_IMPLEMENTATION(STATE_CLASS, LABEL) \
-	RunLatentExecution([this] (TSubclassOf<class UMachineState> InStateClass, FGameplayTag Label) -> TCoroutine<> \
-		{ co_await PushState(InStateClass, Label); }, STATE_CLASS, LABEL)
+	RUN_LATENT_EXECUTION(PushState, STATE_CLASS, LABEL)
 
 #define PUSH_STATE(STATE_NAME) \
-	PUSH_STATE_LABEL(UMachineState_ ## STATE_NAME ## ::StaticClass(), Default)
+	PUSH_STATE_LABEL(STATE_NAME ## ::StaticClass(), Default)
 
 #define PUSH_STATE_LABEL(STATE_NAME, LABEL_NAME) \
-	PUSH_STATE_IMPLEMENTATION(UMachineState_ ## STATE_NAME ## ::StaticClass(), TAG_StateMachine_Label_ ## LABEL_NAME)
+	PUSH_STATE_IMPLEMENTATION(STATE_NAME ## ::StaticClass(), TAG_StateMachine_Label_ ## LABEL_NAME)
 
 #define PUSH_STATE_CLASS(STATE_CLASS) \
 	PUSH_STATE_CLASS_LABEL(STATE_CLASS, Default)
@@ -67,6 +68,11 @@ FINITESTATEMACHINEMODULE_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Lab
 	PUSH_STATE_IMPLEMENTATION(STATE_CLASS, TAG_StateMachine_Label_ ## LABEL_NAME)
 
 #define POP_STATE() if (PopState()) co_return
+
+#define TO_STR(x) #x
+#define RUN_LATENT_EXECUTION(FUNCTION, ...) \
+	RunLatentExecutionExt(LIFT(FUNCTION), *FString::Printf(TEXT("Caller function [%s] Line [%d] Latent function [%s]"), \
+		*FString(__FUNCTION__), __LINE__, *FString(TO_STR(FUNCTION))), ## __VA_ARGS__)
 
 /**
  * Utility macro to use to pass functions with templated parameters or defaulted parameters you're not willing to change.
@@ -83,8 +89,10 @@ FINITESTATEMACHINEMODULE_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Lab
 /**
  * Available actions the state can perform.
  */
+UENUM()
 enum class EStateAction : uint8
 {
+	None,
 	Begin,
 	End,
 	Push,
@@ -144,6 +152,42 @@ public:
 public:
 	UMachineState();
 	virtual ~UMachineState() override;
+
+	/**
+	 * Check whether the state is valid or not.
+	 * @return 	If true, the state has been or being destroyed, false otherwise.
+	 */
+	bool IsStateValid() const;
+
+	/**
+	 * Get currently active label.
+	 * @return	Label tag that is currently active.
+	 */
+	FGameplayTag GetActiveLabel() const;
+
+	/**
+	 * Get last state action that took place.
+	 * @return	Last state action.
+	 */
+	EStateAction GetLastStateAction() const;
+
+	/**
+	 * Get time since last state action took place.
+	 * @return	Time since last state action took place.
+	 */
+	float GetTimeSinceLastStateAction() const;
+
+	/**
+	 * Get debug string. It will be used by the gameplay debugger category for UE5FSM.
+	 *
+	 * In here you can form a string describing important fields you might need to debug your machine states, for
+	 * instance, in case of enemy AI character, the target actor/location, or any other relevant data.
+	 *
+	 * If empty, this state won't be present in the extended debug information.
+	 *
+	 * @return	Debug string.
+	 */
+	virtual FString GetDebugData() const;
 
 protected:
 	/**
@@ -302,6 +346,9 @@ protected:
 	template<typename TFunction, typename... TArgs>
 	TCoroutine<> RunLatentExecution(TFunction Function, TArgs&&... Args);
 
+	template<typename TFunction, typename... TArgs>
+	TCoroutine<> RunLatentExecutionExt(TFunction Function, FString DebugInfo, TArgs&&... Args);
+
 public:
 	/**
 	 * Go to a requested state at a requested label.
@@ -393,6 +440,14 @@ public:
 	/** Fired when state action has been performed. */
 	FOnStateActionSignature OnStateActionDelegate;
 
+private:
+	struct FLatentExecution
+	{
+	public:
+		FSimpleDelegate CancelDelegate;
+		FString DebugData;
+	};
+
 protected:
 	/** Class defining state data object to create to manage data of this state. */
 	UPROPERTY(EditDefaultsOnly, Category="Data")
@@ -425,19 +480,41 @@ private:
 	bool bIsActivatingLabel = false;
 
 	/** Fired when user wants to cancel all non-label latent executions, such as Sleep, AIMoveTo and others. */
-	TArray<FSimpleDelegate> RunningLatentExecutions;
 	TArray<FLatentExecution> RunningLatentExecutions;
 
 	/** If true, the object has been destroyed, false otherwise. */
 	bool bIsDestroyed = false;
+
+	/** Last state action that took place. Is used for debug purposes. */
+	EStateAction LastStateAction = EStateAction::None;
+
+	/** Time the last state action took place. */
+	float LastStateActionTime = 0.f;
 };
 
-template<typename TFunction, typename ... TArgs>
+template<typename TFunction, typename... TArgs>
 TCoroutine<> UMachineState::RunLatentExecution(TFunction Function, TArgs&&... Args)
 {
+	return RunLatentExecutionExt(Function, "", Forward<TArgs>(Args)...);
+}
+
+template<typename TFunction, typename ... TArgs>
+TCoroutine<> UMachineState::RunLatentExecutionExt(TFunction Function, FString DebugInfo, TArgs&&... Args)
+{
+	// Wrap this coroutine in a custom way to support custom cancellation
+	FLatentExecution& LatentExecutionWrapper = RunningLatentExecutions.AddDefaulted_GetRef();
+
+	// Save debug data
+	LatentExecutionWrapper.DebugData = DebugInfo;
+
+#ifdef FSM_EXTEREME_VERBOSITY
+	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("State [%s] Owner [%s] RunLatentExecutionExt [%s]"),
+		*GetNameSafe(this), *Cast<UActorComponent>(StateMachine.Get())->GetOwner()->GetName(),
+		*LatentExecutionWrapper.DebugData);
+#endif
+
 	// Allow user to cancel an awaiter
-	FSimpleDelegate& CancelDelegate = RunningLatentExecutions.AddDefaulted_GetRef();
-	auto Cancelling = Latent::UntilDelegate(CancelDelegate);
+	auto Cancelling = Latent::UntilDelegate(LatentExecutionWrapper.CancelDelegate);
 
 	// Create the asked awaiter
 	auto LatentExecution = Function(Forward<TArgs>(Args)...);
@@ -446,7 +523,17 @@ TCoroutine<> UMachineState::RunLatentExecution(TFunction Function, TArgs&&... Ar
 	co_await WhenAny(MoveTemp(LatentExecution), MoveTemp(Cancelling));
 
 	// Wait until the state becomes active (if not already) or invalid
-	co_await Latent::Until([this] { return !IsValid(this) || IsStateActive(); });
+	co_await Latent::Until([this]
+	{
+		if (!IsStateValid())
+		{
+			return true;
+		}
+
+		return IsStateActive();
+	});
+
+	co_await FinishNowIfCanceled();
 }
 
 template<typename T>
@@ -475,25 +562,3 @@ T* UMachineState::GetOwnerChecked() const
 
 	return Owner;
 }
-
-/**
- * Global machine states are used as a supervisor in a finite state machine. <br> <br>
- *
- * Subclass this state explicitely to separate regular machine states from global ones to avoid mistakes.
- */
-UCLASS(Abstract)
-class FINITESTATEMACHINEMODULE_API UGlobalMachineState
-	: public UMachineState
-{
-	GENERATED_BODY()
-
-protected:
-	/** Don't allow users to use these, as they are not meant to be used in global states. */
-
-	//~UMachineState Interface
-	virtual void Pushed() override final;
-	virtual void Popped() override final;
-	virtual void Paused() override final;
-	virtual void Resumed() override final;
-	//~End of UMachineState Interface
-};

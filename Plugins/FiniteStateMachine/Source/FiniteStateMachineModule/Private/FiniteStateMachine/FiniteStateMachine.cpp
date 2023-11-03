@@ -564,6 +564,27 @@ UMachineStateData* UFiniteStateMachine::GetStateData(TSubclassOf<UMachineState> 
 	return FoundState->BaseStateData;
 }
 
+const TArray<TSubclassOf<UMachineState>>& UFiniteStateMachine::GetStatesStack() const
+{
+	return StatesStack;
+}
+
+TArray<TSubclassOf<UMachineState>> UFiniteStateMachine::GetRegisteredStateClasses() const
+{
+	TArray<TSubclassOf<UMachineState>> RegisteredStateClasses;
+	for (const TObjectPtr<UMachineState> RegisteredState : RegisteredStates)
+	{
+		RegisteredStateClasses.Add(RegisteredState.GetClass());
+	}
+
+	return RegisteredStateClasses;
+}
+
+TSubclassOf<UMachineState> UFiniteStateMachine::GetGlobalStateClass() const
+{
+	return GlobalStateClass;
+}
+
 AActor* UFiniteStateMachine::GetAvatar() const
 {
 	AActor* Owner = GetOwner();

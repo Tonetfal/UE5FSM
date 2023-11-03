@@ -3,7 +3,8 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
-class FFiniteStateMachineModule : public IModuleInterface
+class FFiniteStateMachineModule
+    : public IModuleInterface
 {
 public:
     virtual void StartupModule() override;

@@ -21,7 +21,11 @@ public class FiniteStateMachineModule : ModuleRules
             {
                 "CoreUObject",
                 "Engine",
+                "GameplayDebugger",
             }
         );
+
+        // Enable debug for UE5FSM using gameplay debugger (default binding is apostrophe ('))
+        PublicDefinitions.Add("WITH_UE5FSM_DEBUGGER");
     }
 }
