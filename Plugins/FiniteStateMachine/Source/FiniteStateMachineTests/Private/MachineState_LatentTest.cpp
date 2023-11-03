@@ -4,8 +4,15 @@
 
 TCoroutine<> UMachineState_GotoStateTest1::Label_Default()
 {
+	// Must fail, as it's forbidden to use GotoState immediately after we enter into a label
+	GOTO_STATE(UMachineState_GotoStateTest2);
+	BROADCAST_TEST_MESSAGE("Goto test 2 fail", true);
+
+	// Wait one tick to due to the reason described above
+	co_await RunLatentExecution(Latent::NextTick);
+
 	BROADCAST_TEST_MESSAGE("Pre goto test 2", true);
-	GOTO_STATE(GotoStateTest2);
+	GOTO_STATE(UMachineState_GotoStateTest2);
 
 	// This is not triggered in case of successful GotoState. Note that GOTO_STATE macro co_returns in that case
 	BROADCAST_TEST_MESSAGE("Post goto test 2", true);

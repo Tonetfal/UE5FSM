@@ -530,6 +530,7 @@ bool FFiniteStateMachineLatentGotoStateTest::RunTest(const FString& Parameters)
 	static const TArray<FStateMachineTestMessage> ExpectedTestMessages
 	{
 		{ UMachineState_GotoStateTest1::StaticClass(), "Begin", true },
+		{ UMachineState_GotoStateTest1::StaticClass(), "Goto test 2 fail", true },
 		{ UMachineState_GotoStateTest1::StaticClass(), "Pre goto test 2", true },
 		{ UMachineState_GotoStateTest1::StaticClass(), "End", true },
 		{ UMachineState_GotoStateTest2::StaticClass(), "Begin", true },
