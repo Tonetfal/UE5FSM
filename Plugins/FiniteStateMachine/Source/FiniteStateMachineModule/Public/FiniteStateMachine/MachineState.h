@@ -263,9 +263,16 @@ private:
 	 * @param	OptionalData optional data client might send.
 	 */
 	void OnStateAction(EStateAction StateAction, void* OptionalData = nullptr);
+
+	/**
+	 * Check whether this state can safely be deactivated.
+	 * @return	True if it can, false otherwise.
+	 */
+	bool CanSafelyDeactivate(FString& OutReason) const;
 #pragma endregion
 
 #pragma region Labels
+
 protected:
 	/**
 	 * Default label the state starts with, if not told otherwise.
@@ -338,6 +345,7 @@ public:
 	static bool IsLabelTagCorrect(FGameplayTag Tag);
 
 #pragma region Utilities
+
 protected:
 	/**
 	 * Get typed owner.
@@ -402,6 +410,11 @@ private:
 
 	/** Handles associated with the coroutines used by this state. */
 	TArray<FAsyncCoroutine> RunningLabelCoroutines;
+	/**
+	 * If true, active label is being activated, false otherwise.
+	 * It prevents users from activating labels while some other is being activated.
+	 */
+	bool bIsActivatingLabel = false;
 
 	/** Fired when user wants to cancel all non-label latent executions, such as Sleep, AIMoveTo and others. */
 	TArray<FSimpleDelegate> RunningLatentExecutions;

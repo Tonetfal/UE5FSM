@@ -40,7 +40,7 @@ void UMachineState::Begin(TSubclassOf<UMachineState> PreviousState)
 
 void UMachineState::End(TSubclassOf<UMachineState> NewState)
 {
-	UE_LOG(LogFiniteStateMachine, Verbose, TEXT("[%s] end."), *GetName());
+	ensureMsgf(!bIsActivatingLabel, TEXT("Ending a state while a label is being activated is prohibited."));
 
 	StopRunningLabels();
 	StopLatentExecution_Implementation();
@@ -191,10 +191,22 @@ void UMachineState::Tick(float DeltaSeconds)
 	if (!bLabelActivated)
 	{
 		const FLabelSignature& LabelFunction = RegisteredLabels.FindChecked(ActiveLabel);
-		if (ensure(LabelFunction.IsBound()))
+		if (ensureMsgf(LabelFunction.IsBound(), TEXT("Function for label [%s] is not bound"), *ActiveLabel.ToString()))
 		{
 			bLabelActivated = true;
 			RunningLabelCoroutines.Add(LabelFunction.Execute());
+
+			// Disallow editing the active label
+			bIsActivatingLabel = true;
+
+			const auto Coroutine = LabelFunction.Execute();
+			RunningLabels.Add({ Coroutine, ActiveLabel.GetTagName().ToString() });
+
+			FSM_LOG(Verbose, "State [%s] Label [%s] has been activated.",
+				*GetClass()->GetName(), *ActiveLabel.ToString());
+
+			// Re-allow editing the active label
+			bIsActivatingLabel = false;
 		}
 	}
 }
@@ -249,6 +261,17 @@ void UMachineState::OnStateAction(EStateAction StateAction, void* OptionalData)
 
 	// Notify about a state action
 	OnStateActionDelegate.Broadcast(StateAction);
+}
+
+bool UMachineState::CanSafelyDeactivate(FString& OutReason) const
+{
+	if (bIsActivatingLabel)
+	{
+		OutReason = TEXT("Label is being activated. Try after it finishes (when UMachineState::Tick() ends).");
+		return false;
+	}
+
+	return true;
 }
 
 TCoroutine<> UMachineState::Label_Default()

@@ -228,6 +228,13 @@ void UFiniteStateMachine::SetGlobalState(TSubclassOf<UMachineState> InStateClass
 		return;
 	}
 
+	if (ensure(GlobalStateClass->ImplementsInterface(UGlobalMachineStateInterface::StaticClass())))
+	{
+		FSM_LOG(Warning, "Global state [%s] must implement UGlobalMachineStateInterface.",
+			*InStateClass->GetName());
+		return;
+	}
+
 	if (IsValid(InStateClass))
 	{
 		if (!InitialStateClassesToRegister.Contains(InStateClass))
@@ -263,8 +270,16 @@ bool UFiniteStateMachine::GotoState(TSubclassOf<UMachineState> InStateClass, FGa
 	// Disallow going to state when it's on the stack, but it's not the top-most one
 	if (ActiveState.IsValid() && ActiveState->GetClass() != InStateClass && StatesStack.Contains(InStateClass))
 	{
-		UE_LOG(LogFiniteStateMachine, Warning, TEXT("Impossible to go to state [%s] as it's already present in the "
-			"states stack."), *GetNameSafe(InStateClass));
+		FSM_LOG(Warning, "Impossible to go to state [%s] as it's already present in the states stack.",
+			*GetNameSafe(InStateClass));
+		return false;
+	}
+
+	FString Reason;
+	if (ActiveState.IsValid() && !ActiveState->CanSafelyDeactivate(OUT Reason))
+	{
+		FSM_LOG(Warning, "Impossible to go to state [%s] as active state [%s] is not safe from being deactivated. "
+			"Reason: [%s]", *GetNameSafe(InStateClass), *ActiveState->GetName(), *Reason);
 		return false;
 	}
 
