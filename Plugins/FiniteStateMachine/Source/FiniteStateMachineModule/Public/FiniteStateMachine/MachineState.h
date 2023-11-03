@@ -196,6 +196,13 @@ protected:
 	 */
 	int32 StopLatentExecution();
 
+	/**
+	 * Called after StopLatentExecution finishes executing.
+	 *
+	 * It's the place to put your custom code when latent execution is aborted.
+	 */
+	virtual void StopLatentExecution_Custom();
+
 private:
 	/**
 	 * Stop any latent execution of this state. Doesn't interrupt label execution.
@@ -409,7 +416,8 @@ private:
 	bool bLabelActivated = false;
 
 	/** Handles associated with the coroutines used by this state. */
-	TArray<FAsyncCoroutine> RunningLabelCoroutines;
+	TArray<TPair<TCoroutine<>, FString>> RunningLabels;
+
 	/**
 	 * If true, active label is being activated, false otherwise.
 	 * It prevents users from activating labels while some other is being activated.
@@ -418,6 +426,10 @@ private:
 
 	/** Fired when user wants to cancel all non-label latent executions, such as Sleep, AIMoveTo and others. */
 	TArray<FSimpleDelegate> RunningLatentExecutions;
+	TArray<FLatentExecution> RunningLatentExecutions;
+
+	/** If true, the object has been destroyed, false otherwise. */
+	bool bIsDestroyed = false;
 };
 
 template<typename TFunction, typename ... TArgs>

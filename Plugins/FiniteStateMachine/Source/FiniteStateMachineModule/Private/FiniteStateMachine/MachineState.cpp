@@ -146,7 +146,6 @@ int32 UMachineState::ClearInvalidLatentExecutionCancellers()
 
 int32 UMachineState::StopLatentExecution()
 {
-	return StateMachine->StopEveryLatentExecution();
 	if (!StateMachine.IsValid())
 	{
 		return -1;
@@ -156,16 +155,22 @@ int32 UMachineState::StopLatentExecution()
 	StopLatentExecution_Custom();
 	return Num;
 }
+
+void UMachineState::StopLatentExecution_Custom()
+{
+	// Empty
 }
 
 int32 UMachineState::StopLatentExecution_Implementation()
 {
 	int32 StoppedCoroutines = 0;
-	for (FSimpleDelegate& RunningLatentExecution : RunningLatentExecutions)
+	for (FLatentExecution& LatentExecution : RunningLatentExecutions)
 	{
-		const bool bExecuted = RunningLatentExecution.ExecuteIfBound();
-		if (bExecuted)
+		if (LatentExecution.CancelDelegate.ExecuteIfBound())
 		{
+			FSM_LOG(Verbose, "Secondary coroutine [%s] in state [%s] has been cancelled.",
+				*LatentExecution.DebugData, *GetName());
+
 			StoppedCoroutines++;
 		}
 	}
@@ -194,7 +199,6 @@ void UMachineState::Tick(float DeltaSeconds)
 		if (ensureMsgf(LabelFunction.IsBound(), TEXT("Function for label [%s] is not bound"), *ActiveLabel.ToString()))
 		{
 			bLabelActivated = true;
-			RunningLabelCoroutines.Add(LabelFunction.Execute());
 
 			// Disallow editing the active label
 			bIsActivatingLabel = true;

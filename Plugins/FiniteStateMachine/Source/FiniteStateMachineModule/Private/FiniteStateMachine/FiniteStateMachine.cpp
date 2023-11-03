@@ -139,12 +139,28 @@ void UFiniteStateMachine::UninitializeComponent()
 	if (ActiveGlobalState.IsValid())
 	{
 		ActiveGlobalState->OnStateAction(EStateAction::End, nullptr);
+		ActiveGlobalState.Reset();
 	}
 
-	if (ActiveState.IsValid())
+	for (const TSubclassOf<UMachineState> Class : StatesStack)
 	{
-		ActiveState->OnStateAction(EStateAction::End, nullptr);
+		UMachineState* State = FindStateChecked(Class);
+		State->OnStateAction(EStateAction::End, nullptr);
 	}
+
+	StatesStack.Empty();
+
+	// Sanity check
+	StopEveryLatentExecution();
+	StopEveryRunningLabels();
+
+	for (const TObjectPtr<UMachineState> State : RegisteredStates)
+	{
+		State->bIsDestroyed = true;
+		State->ConditionalBeginDestroy();
+	}
+
+	RegisteredStates.Empty();
 
 	Super::UninitializeComponent();
 }

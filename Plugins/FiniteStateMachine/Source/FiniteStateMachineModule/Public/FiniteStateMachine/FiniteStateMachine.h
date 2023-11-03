@@ -71,7 +71,7 @@ public:
 	 * @param	InStateClass global state to be in throughout whole execution.
 	 * @note	Only callable before the initialiation terminates.
 	 */
-	void SetGlobalState(TSubclassOf<UGlobalMachineState> InStateClass);
+	void SetGlobalState(TSubclassOf<UMachineState> InStateClass);
 
 	/**
 	 * Go to a requested state at a requested label.
@@ -120,7 +120,7 @@ public:
 	 *
 	 * @note	If a latent execution is terminated while the state is paused, it's not going to carry on the execution
 	 * unlles the state becomes active.
-	 * @see		UMachineState::LatentExecution()
+	 * @see		UMachineState::RunLatentExecution()
 	 */
 	int32 StopEveryLatentExecution();
 
@@ -187,21 +187,23 @@ public:
 
 	/**
 	 * Get typed data of a given state.
-	 * @tparam	UserClass state data type to search for.
-	 * @param	InStateClass state which data has to be retrieved.
+	 * @tparam	StateDataClass state data type to search for.
+	 * @tparam	StateClass state which data has to be retrieved.
 	 * @return	State data. May be nullptr.
 	 */
-	template<typename UserClass>
-	UserClass* GetStateData(TSubclassOf<UMachineState> InStateClass) const;
+	template<typename StateDataClass, typename StateClass>
+	StateDataClass* GetStateData() const;
 
 	/**
 	 * Get typed data of a given state checked.
-	 * @tparam	UserClass state data type to search for.
-	 * @param	InStateClass state which data has to be retrieved.
+	 * @tparam	StateDataClass state data type to search for.
+	 * @tparam	StateClass state which data has to be retrieved.
 	 * @return	State data checked.
 	 */
 	template<typename UserClass>
 	UserClass* GetStateDataChecked(TSubclassOf<UMachineState> InStateClass) const;
+	template<typename StateDataClass, typename StateClass>
+	StateDataClass* GetStateDataChecked() const;
 
 	/**
 	 * Get physical actor of the state machine.
@@ -301,7 +303,7 @@ protected:
 
 	/** Active global state. */
 	UPROPERTY(VisibleInstanceOnly, Category="State Machine|Debug")
-	TWeakObjectPtr<UGlobalMachineState> ActiveGlobalState = nullptr;
+	TWeakObjectPtr<UMachineState> ActiveGlobalState = nullptr;
 
 	/** Active normal state. */
 	UPROPERTY(VisibleInstanceOnly, Category="State Machine|Debug")
@@ -312,8 +314,8 @@ protected:
 
 private:
 	/** Global state the state machine is in. If not specified, it won't have any. */
-	UPROPERTY(EditDefaultsOnly, Category="State Machine")
-	TSubclassOf<UGlobalMachineState> GlobalStateClass = nullptr;
+	UPROPERTY(EditDefaultsOnly, Category="State Machine", meta=(MustImplement="GlobalMachineStateInterface"))
+	TSubclassOf<UMachineState> GlobalStateClass = nullptr;
 
 	/**
 	 * Initial state the state machine starts with. If not specified, it won't have any unless GotoState() is used after
@@ -362,21 +364,23 @@ UserClass* UFiniteStateMachine::GetStateChecked() const
 	return TypedState;
 }
 
-template<typename UserClass>
-UserClass* UFiniteStateMachine::GetStateData(TSubclassOf<UMachineState> InStateClass) const
+template<typename StateDataClass, typename StateClass>
+StateDataClass* UFiniteStateMachine::GetStateData() const
 {
-	static_assert(TIsDerivedFrom<UserClass, UMachineStateData>::IsDerived,
+	static_assert(TIsDerivedFrom<StateDataClass, UMachineStateData>::IsDerived,
 		"Attempting to pass a templated parameter that is not of UMachineStateData class.");
+	static_assert(TIsDerivedFrom<StateClass, UMachineState>::IsDerived,
+		"Attempting to pass a templated parameter that is not of UMachineState class.");
 
-	UMachineStateData* StateData = GetStateData(InStateClass, UserClass::StaticClass());
-	auto* TypedStateData = Cast<UserClass>(StateData);
+	UMachineStateData* StateData = GetStateData(StateClass::StaticClass(), StateDataClass::StaticClass());
+	auto* TypedStateData = Cast<StateDataClass>(StateData);
 	return TypedStateData;
 }
 
-template<typename UserClass>
-UserClass* UFiniteStateMachine::GetStateDataChecked(TSubclassOf<UMachineState> InStateClass) const
+template<typename StateDataClass, typename StateClass>
+StateDataClass* UFiniteStateMachine::GetStateDataChecked() const
 {
-	auto* TypedStateData = GetStateData<UserClass>(InStateClass);
+	auto* TypedStateData = GetStateData<StateDataClass, StateClass>();
 	check(IsValid(TypedStateData));
 
 	return TypedStateData;
