@@ -1,8 +1,8 @@
 ﻿using UnrealBuildTool;
 
-public class FiniteStateMachineTests : ModuleRules
+public class UE5FSMTests : ModuleRules
 {
-    public FiniteStateMachineTests(ReadOnlyTargetRules Target) : base(Target)
+    public UE5FSMTests(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
@@ -12,9 +12,9 @@ public class FiniteStateMachineTests : ModuleRules
                 "Core",
                 "CoreUObject",
                 "Engine",
-                "FiniteStateMachineModule",
                 "GameplayTags",
                 "UE5Coro",
+                "UE5FSM",
                 "UnrealEd",
             }
         );

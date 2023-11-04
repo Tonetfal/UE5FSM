@@ -1,4 +1,4 @@
-﻿# Finite State Machine
+﻿# UE5FSM
 
 This is a FSM developed for Unreal Engine 5 that mimics behavior of the Unreal 3 FSM.
 

@@ -18,7 +18,7 @@ class UGlobalMachineStateInterface
  *
  * Right now it doesn't implement anything, but serves only as a thin distinction between normal and global states.
  */
-class FINITESTATEMACHINEMODULE_API IGlobalMachineStateInterface
+class UE5FSM_API IGlobalMachineStateInterface
 {
 	GENERATED_BODY()
 

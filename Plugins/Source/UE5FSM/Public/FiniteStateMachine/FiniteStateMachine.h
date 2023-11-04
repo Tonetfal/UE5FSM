@@ -32,7 +32,7 @@ using namespace UE5Coro;
  * - To access data a state wants to expose, use the GetStateData().
  */
 UCLASS(Config="Engine", DefaultConfig, ClassGroup=("Finite State Machine"), meta=(BlueprintSpawnableComponent))
-class FINITESTATEMACHINEMODULE_API UFiniteStateMachine
+class UE5FSM_API UFiniteStateMachine
 	: public UActorComponent
 {
 	GENERATED_BODY()

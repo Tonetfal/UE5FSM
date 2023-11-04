@@ -1,8 +1,8 @@
 ﻿using UnrealBuildTool;
 
-public class FiniteStateMachineModule : ModuleRules
+public class UE5FSM : ModuleRules
 {
-    public FiniteStateMachineModule(ReadOnlyTargetRules Target) : base(Target)
+    public UE5FSM(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 

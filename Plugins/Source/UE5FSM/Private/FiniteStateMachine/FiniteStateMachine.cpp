@@ -14,7 +14,6 @@
 #define FSM_LOG(VERBOSITY, MESSAGE, ...) UE_LOG(LogFiniteStateMachine, VERBOSITY, TEXT("%s - %s"), \
 	*FSM_EXTEREME_VERBOSITY_STR, *FString::Printf(TEXT(MESSAGE), ## __VA_ARGS__))
 
-
 /**
  * Simple RAII wrapper for UFiniteStateMachineMutex::bModifyingInternalState.
  */

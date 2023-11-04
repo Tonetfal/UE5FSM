@@ -9,7 +9,7 @@
  * the information around.
  */
 UCLASS(Blueprintable, BlueprintType, ClassGroup=("Finite State Machine"))
-class FINITESTATEMACHINEMODULE_API UMachineStateData
+class UE5FSM_API UMachineStateData
 	: public UObject
 {
 	GENERATED_BODY()

@@ -16,7 +16,7 @@ class UMachineStateData;
 using namespace UE5Coro;
 
 /** Label tag associated with the default label the states start with if not told otherwise. */
-FINITESTATEMACHINEMODULE_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Default);
+UE5FSM_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Default);
 
 /**
  * Utility macro used to easily register labels that 100% match the naming.
@@ -132,7 +132,7 @@ enum class EStateAction : uint8
  * - To define the subclass of the data object you want to use for a particular state use UMachineState::StateDataClass.
  */
 UCLASS(Abstract, Blueprintable, ClassGroup=("Finite State Machine"))
-class FINITESTATEMACHINEMODULE_API UMachineState
+class UE5FSM_API UMachineState
 	: public UObject
 {
 	GENERATED_BODY()

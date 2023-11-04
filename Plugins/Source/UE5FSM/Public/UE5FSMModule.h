@@ -3,7 +3,7 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
-class FFiniteStateMachineModule
+class FUE5FSMModule
     : public IModuleInterface
 {
 public:

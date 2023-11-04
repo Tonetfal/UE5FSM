@@ -1,13 +1,13 @@
-﻿#include "FiniteStateMachineModule.h"
+﻿#include "UE5FSMModule.h"
 
 #include "GameplayDebugger.h"
 #include "FiniteStateMachine/Debug/GameplayDebuggerCategory_UE5FSM.h"
 
-#define LOCTEXT_NAMESPACE "FFiniteStateMachineModule"
+#define LOCTEXT_NAMESPACE "FUE5FSMModule"
 
 const static FName DebuggerCategoryName = "UE5FSM";
 
-void FFiniteStateMachineModule::StartupModule()
+void FUE5FSMModule::StartupModule()
 {
 #if WITH_UE5FSM_DEBUGGER
 	if (IGameplayDebugger::IsAvailable())
@@ -23,7 +23,7 @@ void FFiniteStateMachineModule::StartupModule()
 #endif
 }
 
-void FFiniteStateMachineModule::ShutdownModule()
+void FUE5FSMModule::ShutdownModule()
 {
 #if WITH_UE5FSM_DEBUGGER
 	if (IGameplayDebugger::IsAvailable())
@@ -36,4 +36,4 @@ void FFiniteStateMachineModule::ShutdownModule()
 
 #undef LOCTEXT_NAMESPACE
 
-IMPLEMENT_MODULE(FFiniteStateMachineModule, FiniteStateMachineModule)
+IMPLEMENT_MODULE(FUE5FSMModule, UE5FSM)

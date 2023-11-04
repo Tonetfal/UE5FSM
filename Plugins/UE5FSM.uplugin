@@ -2,11 +2,11 @@
 	"FileVersion": 3,
 	"Version": 1,
 	"VersionName": "1.0",
-	"FriendlyName": "Finite State Machine",
+	"FriendlyName": "UE5 Finite State Machine",
 	"Description": "Finite State Machine (FSM) mimicking behavior of Unreal 3 FSM",
 	"Category": "Programming",
-	"CreatedBy": "Jeki",
-	"CreatedByURL": "https://github.com/JekiTheMonkey",
+	"CreatedBy": "Tonetfal",
+	"CreatedByURL": "https://github.com/Tonetfal",
 	"DocsURL": "",
 	"MarketplaceURL": "",
 	"SupportURL": "",
@@ -16,12 +16,12 @@
 	"Installed": false,
 	"Modules": [
 		{
-			"Name": "FiniteStateMachineModule",
+			"Name": "UE5FSM",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		},
 		{
-			"Name": "FiniteStateMachineTests",
+			"Name": "UE5FSMTests",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		}
