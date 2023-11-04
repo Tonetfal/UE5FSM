@@ -290,6 +290,17 @@ bool UFiniteStateMachine::GotoState(TSubclassOf<UMachineState> InStateClass, FGa
 		return false;
 	}
 
+	if (ActiveState.IsValid() &&
+		ActiveState->StatesBlocklist.ContainsByPredicate([InStateClass] (const TSubclassOf<UMachineState> Item)
+		{
+			return InStateClass->IsChildOf(Item);
+		}))
+	{
+		FSM_LOG(Warning, "Impossible to go to state [%s] as active state [%s] has disallowed this particular "
+			"transition.", *GetNameSafe(InStateClass), *ActiveState->GetName());
+		return false;
+	}
+
 	FString Reason;
 	if (ActiveState.IsValid() && !ActiveState->CanSafelyDeactivate(OUT Reason))
 	{

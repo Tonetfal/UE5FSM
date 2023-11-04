@@ -3,6 +3,7 @@
 #include "FiniteStateMachineTestObject.h"
 #include "MachineState_LatentTest.h"
 #include "MachineState_PushPopTest.h"
+#include "MachineState_StatesBlocklistTest.h"
 #include "Misc/AutomationTest.h"
 #include "Tests/AutomationCommon.h"
 #include "Tests/AutomationEditorCommon.h"
@@ -604,6 +605,72 @@ bool FFiniteStateMachineLatentExecutionTest::RunTest(const FString& Parameters)
 
 	// Wait until we're notified that the test has ended
 	ADD_LATENT_AUTOMATION_COMMAND(FWaitPushPopMessage(this, "End test", 6.f, true));
+
+	// Check whether all predicted events took place in the correct order from the correct states
+	ADD_LATENT_AUTOMATION_COMMAND(FCompareTestMessages(this, ExpectedTestMessages));
+
+	// Finish test
+	ADD_LATENT_AUTOMATION_COMMAND(FEndLatentTest());
+	ADD_LATENT_AUTOMATION_COMMAND(FEndPlayMapCommand());
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineStatesBlocklistTest, "UE5FSM.StatesBlocklist",
+	EAutomationTestFlags::ApplicationContextMask |
+	EAutomationTestFlags::HighPriority |
+	EAutomationTestFlags::ProductFilter);
+
+bool FFiniteStateMachineStatesBlocklistTest::RunTest(const FString& Parameters)
+{
+	static const TArray<FStateMachineTestMessage> ExpectedTestMessages
+	{
+		{ UMachineState_StatesBlocklistTest1::StaticClass(), "Begin", true },
+		{ UMachineState_StatesBlocklistTest1::StaticClass(), "End", true },
+		{ UMachineState_StatesBlocklistTest3::StaticClass(), "Begin", true },
+		{ UMachineState_StatesBlocklistTest3::StaticClass(), "End", true },
+		{ UMachineState_StatesBlocklistTest2::StaticClass(), "Begin", true },
+		{ UMachineState_StatesBlocklistTest2::StaticClass(), "End", true },
+		{ UMachineState_StatesBlocklistTest1::StaticClass(), "Begin", true },
+		{ UMachineState_StatesBlocklistTest1::StaticClass(), "Popped", true },
+	};
+
+	// Setup environment and test objects
+	ADD_LATENT_AUTOMATION_COMMAND(FStartLatentTest());
+	ADD_LATENT_AUTOMATION_COMMAND(FEditorLoadMap(FString("/Engine/Maps/Entry")));
+	ADD_LATENT_AUTOMATION_COMMAND(FStartPIECommand(true));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.f));
+	ADD_LATENT_AUTOMATION_COMMAND(FCreateTestActor(this, &TestActor));
+
+	// Register states
+	ADD_LATENT_AUTOMATION_COMMAND(FRegisterState(this, &TestActor, UMachineState_StatesBlocklistTest1::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FRegisterState(this, &TestActor, UMachineState_StatesBlocklistTest2::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FRegisterState(this, &TestActor, UMachineState_StatesBlocklistTest3::StaticClass()));
+
+	// Begin
+	ADD_LATENT_AUTOMATION_COMMAND(FGotoState(this, &TestActor, UMachineState_StatesBlocklistTest1::StaticClass(), TAG_StateMachine_Label_Default));
+	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_StatesBlocklistTest1::StaticClass()));
+
+	// 1 blocks 2, so it should fail. Going to 3 should work
+	ADD_LATENT_AUTOMATION_COMMAND(FGotoState_Fail(this, &TestActor, UMachineState_StatesBlocklistTest2::StaticClass(), TAG_StateMachine_Label_Default));
+	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_StatesBlocklistTest1::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FGotoState(this, &TestActor, UMachineState_StatesBlocklistTest3::StaticClass(), TAG_StateMachine_Label_Default));
+	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_StatesBlocklistTest3::StaticClass()));
+
+	// 3 blocks 1, so it should fail. Going to 2 should work
+	ADD_LATENT_AUTOMATION_COMMAND(FGotoState_Fail(this, &TestActor, UMachineState_StatesBlocklistTest1::StaticClass(), TAG_StateMachine_Label_Default));
+	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_StatesBlocklistTest3::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FGotoState(this, &TestActor, UMachineState_StatesBlocklistTest2::StaticClass(), TAG_StateMachine_Label_Default));
+	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_StatesBlocklistTest2::StaticClass()));
+
+	// 2 blocks 3, so it should fail. Going to 1 should work
+	ADD_LATENT_AUTOMATION_COMMAND(FGotoState_Fail(this, &TestActor, UMachineState_StatesBlocklistTest3::StaticClass(), TAG_StateMachine_Label_Default));
+	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_StatesBlocklistTest2::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FGotoState(this, &TestActor, UMachineState_StatesBlocklistTest1::StaticClass(), TAG_StateMachine_Label_Default));
+	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_StatesBlocklistTest1::StaticClass()));
+
+	// Finish the test
+	ADD_LATENT_AUTOMATION_COMMAND(FPopState(this, &TestActor, nullptr));
 
 	// Check whether all predicted events took place in the correct order from the correct states
 	ADD_LATENT_AUTOMATION_COMMAND(FCompareTestMessages(this, ExpectedTestMessages));

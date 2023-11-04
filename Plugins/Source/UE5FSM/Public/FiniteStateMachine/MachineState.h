@@ -453,7 +453,11 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="Data")
 	TSubclassOf<UMachineStateData> StateDataClass = nullptr;
 
-	/** Reference to the base state data object. It's intended to be up-casted to get the subclasses version. */
+	/** Machine state classes that cannot be activated using GotoState while this one is the active one. */
+	UPROPERTY(EditDefaultsOnly, Category="State Transition")
+	TArray<TSubclassOf<UMachineState>> StatesBlocklist;
+
+	/** Reference to the base state data object. It's intended to be downcasted to get the subclasses version. */
 	UPROPERTY()
 	TObjectPtr<UMachineStateData> BaseStateData = nullptr;
 
