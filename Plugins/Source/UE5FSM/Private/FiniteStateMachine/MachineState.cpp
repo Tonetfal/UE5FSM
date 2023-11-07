@@ -313,6 +313,12 @@ TCoroutine<> UMachineState::Label_Default()
 	co_return;
 }
 
+FString UMachineState::GetDebugString(const FString& RunLatentExecutionExt) const
+{
+	return FString::Printf(TEXT("State [%s] Owner [%s] RunLatentExecutionExt [%s]"),
+		*GetNameSafe(this), *StateMachine.Get()->GetOwner()->GetName(), *RunLatentExecutionExt);
+}
+
 bool UMachineState::GotoState(TSubclassOf<UMachineState> InStateClass,
 	FGameplayTag Label /*TAG_StateMachine_Label_Begin*/)
 {

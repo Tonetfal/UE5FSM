@@ -1,6 +1,7 @@
 #include "Editor.h"
 #include "FiniteStateMachine/FiniteStateMachine.h"
 #include "FiniteStateMachineTestObject.h"
+#include "MachineState_ExternalPushPopTest.h"
 #include "MachineState_LatentTest.h"
 #include "MachineState_PushPopTest.h"
 #include "MachineState_StatesBlocklistTest.h"
@@ -300,7 +301,7 @@ bool FCompareTestMessages::Update()
 
 #pragma endregion
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineBasicTest, "FiniteStateMachine.BasicPushPop",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineBasicTest, "UE5FSM.BasicPushPop",
 	EAutomationTestFlags::ApplicationContextMask |
 	EAutomationTestFlags::HighPriority |
 	EAutomationTestFlags::ProductFilter);
@@ -354,7 +355,7 @@ bool FFiniteStateMachineBasicTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineErrorTest, "FiniteStateMachine.ErrorPushPop",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineErrorTest, "UE5FSM.ErrorPushPop",
 	EAutomationTestFlags::ApplicationContextMask |
 	EAutomationTestFlags::HighPriority |
 	EAutomationTestFlags::ProductFilter);
@@ -456,7 +457,7 @@ bool FFiniteStateMachineErrorTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineLatentTest, "FiniteStateMachine.LatentPushPop",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineLatentTest, "UE5FSM.LatentPushPop",
 	EAutomationTestFlags::ApplicationContextMask |
 	EAutomationTestFlags::HighPriority |
 	EAutomationTestFlags::ProductFilter);
@@ -521,7 +522,7 @@ bool FFiniteStateMachineLatentTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineLatentGotoStateTest, "FiniteStateMachine.LatentGotoState",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineLatentGotoStateTest, "UE5FSM.LatentGotoState",
 	EAutomationTestFlags::ApplicationContextMask |
 	EAutomationTestFlags::HighPriority |
 	EAutomationTestFlags::ProductFilter);
@@ -565,7 +566,7 @@ bool FFiniteStateMachineLatentGotoStateTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineLatentExecutionTest, "FiniteStateMachine.LatentExecution",
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineLatentExecutionTest, "UE5FSM.LatentExecution",
 	EAutomationTestFlags::ApplicationContextMask |
 	EAutomationTestFlags::HighPriority |
 	EAutomationTestFlags::ProductFilter);
@@ -671,6 +672,79 @@ bool FFiniteStateMachineStatesBlocklistTest::RunTest(const FString& Parameters)
 
 	// Finish the test
 	ADD_LATENT_AUTOMATION_COMMAND(FPopState(this, &TestActor, nullptr));
+
+	// Check whether all predicted events took place in the correct order from the correct states
+	ADD_LATENT_AUTOMATION_COMMAND(FCompareTestMessages(this, ExpectedTestMessages));
+
+	// Finish test
+	ADD_LATENT_AUTOMATION_COMMAND(FEndLatentTest());
+	ADD_LATENT_AUTOMATION_COMMAND(FEndPlayMapCommand());
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineExternalPushPopTest, "UE5FSM.ExternalPushPopTest",
+	EAutomationTestFlags::ApplicationContextMask |
+	EAutomationTestFlags::HighPriority |
+	EAutomationTestFlags::ProductFilter);
+
+bool FFiniteStateMachineExternalPushPopTest::RunTest(const FString& Parameters)
+{
+	static TArray<FStateMachineTestMessage> ExpectedTestMessages;
+	ExpectedTestMessages.Empty();
+
+	// Setup environment and test objects
+	ADD_LATENT_AUTOMATION_COMMAND(FStartLatentTest());
+	ADD_LATENT_AUTOMATION_COMMAND(FEditorLoadMap(FString("/Engine/Maps/Entry")));
+	ADD_LATENT_AUTOMATION_COMMAND(FStartPIECommand(true));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.f));
+	ADD_LATENT_AUTOMATION_COMMAND(FCreateTestActor(this, &TestActor));
+
+	// Register states
+	ADD_LATENT_AUTOMATION_COMMAND(FRegisterState(this, &TestActor, UMachineState_ExternalPushPopTest1::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FRegisterState(this, &TestActor, UMachineState_ExternalPushPopTest2::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FRegisterState(this, &TestActor, UMachineState_ExternalPushPopTest3::StaticClass()));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FGotoState(this, &TestActor, UMachineState_ExternalPushPopTest1::StaticClass(), TAG_StateMachine_Label_Default));
+	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_ExternalPushPopTest1::StaticClass()));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest1, "Begin", true));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f));
+	ADD_LATENT_AUTOMATION_COMMAND(FPushState(this, &TestActor, UMachineState_ExternalPushPopTest2::StaticClass(), TAG_StateMachine_Label_Default));
+	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_ExternalPushPopTest2::StaticClass()));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest1, "Paused", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest2, "Pushed", true));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f));
+	ADD_LATENT_AUTOMATION_COMMAND(FPushState(this, &TestActor, UMachineState_ExternalPushPopTest3::StaticClass(), TAG_StateMachine_Label_Default));
+	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_ExternalPushPopTest3::StaticClass()));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest2, "Paused", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest3, "Pushed", true));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.f));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest3, "Post default label", true));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FPopState(this, &TestActor, UMachineState_ExternalPushPopTest2::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest3, "Popped", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest2, "Resumed", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest2, "Post default label", true));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FPopState(this, &TestActor, UMachineState_ExternalPushPopTest1::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest2, "Popped", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest1, "Resumed", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest1, "Post default label", true));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FPopState(this, &TestActor, nullptr));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest1, "Popped", true));
 
 	// Check whether all predicted events took place in the correct order from the correct states
 	ADD_LATENT_AUTOMATION_COMMAND(FCompareTestMessages(this, ExpectedTestMessages));

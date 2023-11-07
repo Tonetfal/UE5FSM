@@ -22,7 +22,7 @@ TCoroutine<> UMachineState_PushPopTest::Label_Default()
 	// THAT IS NOT THE WAY USERS ARE SUPPOSED TO USE THAT
 	// Usually after GotoLabel we end the execution of the label, however for test purposes we're going to do something
 	// after that
-	if (GotoLabel(TAG_StateMachine_Label_Test))
+	if (GOTO_LABEL(Test))
 	{
 		// Label_Test is activated only the next tick, hence it'll execute the code below before that
 
@@ -33,7 +33,7 @@ TCoroutine<> UMachineState_PushPopTest::Label_Default()
 		}, 1.5f, false);
 
 		// Should be cancelled by the test label
-		co_await RunLatentExecution(Latent::Seconds, 20.0);
+		co_await RUN_LATENT_EXECUTION(Latent::Seconds, 20.0);
 		BROADCAST_TEST_MESSAGE("Latent execution has been cancelled", true);
 	}
 }
@@ -47,10 +47,10 @@ TCoroutine<> UMachineState_PushPopTest::Label_Test()
 
 	if (LatentPushState)
 	{
-		co_await RunLatentExecution(Latent::Seconds, 1.0);
+		co_await RUN_LATENT_EXECUTION(Latent::Seconds, 1.0);
 		co_await PUSH_STATE_CLASS(LatentPushState);
 	}
 
-	co_await RunLatentExecution(Latent::Seconds, 1.0);
+	co_await RUN_LATENT_EXECUTION(Latent::Seconds, 1.0);
 	POP_STATE();
 }

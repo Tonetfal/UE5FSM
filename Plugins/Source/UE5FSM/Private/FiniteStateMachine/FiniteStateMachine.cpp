@@ -359,13 +359,13 @@ TCoroutine<> UFiniteStateMachine::PushState(TSubclassOf<UMachineState> InStateCl
 
 	if (!ensure(HasBeenInitialized()))
 	{
-		FSM_LOG(Warning, "Impossible to use PushState before initialization.");
+		FSM_LOG(Warning, "Impossible to push a state before initialization.");
 		co_return;
 	}
 
 	if (bModifyingInternalState)
 	{
-		FSM_LOG(Warning, "Impossible to use PushState while modifying internal state.");
+		FSM_LOG(Warning, "Impossible to push a state while modifying internal state.");
 		co_return;
 	}
 
@@ -416,13 +416,13 @@ bool UFiniteStateMachine::PopState()
 {
 	if (!ensure(HasBeenInitialized()))
 	{
-		FSM_LOG(Warning, "Impossible to use PopState before initialization.");
+		FSM_LOG(Warning, "Impossible to pop a state before initialization.");
 		return false;
 	}
 
 	if (bModifyingInternalState)
 	{
-		FSM_LOG(Warning, "Impossible to use PushState while modifying internal state.");
+		FSM_LOG(Warning, "Impossible to pop a state while modifying internal state.");
 		return false;
 	}
 

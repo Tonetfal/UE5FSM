@@ -349,6 +349,9 @@ protected:
 	template<typename TFunction, typename... TArgs>
 	TCoroutine<> RunLatentExecutionExt(TFunction Function, FString DebugInfo, TArgs&&... Args);
 
+private:
+	FString GetDebugString(const FString& RunLatentExecutionExt) const;
+
 public:
 	/**
 	 * Go to a requested state at a requested label.
@@ -512,9 +515,7 @@ TCoroutine<> UMachineState::RunLatentExecutionExt(TFunction Function, FString De
 	LatentExecutionWrapper.DebugData = DebugInfo;
 
 #ifdef FSM_EXTEREME_VERBOSITY
-	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("State [%s] Owner [%s] RunLatentExecutionExt [%s]"),
-		*GetNameSafe(this), *Cast<UActorComponent>(StateMachine.Get())->GetOwner()->GetName(),
-		*LatentExecutionWrapper.DebugData);
+	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("%s"), *GetDebugString(LatentExecutionWrapper.DebugData));
 #endif
 
 	// Allow user to cancel an awaiter
