@@ -1,0 +1,39 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "UE5 Finite State Machine",
+	"Description": "Finite State Machine (FSM) mimicking behavior of Unreal 3 FSM",
+	"Category": "Programming",
+	"CreatedBy": "Tonetfal",
+	"CreatedByURL": "https://github.com/Tonetfal",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "UE5FSM",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "UE5FSMTests",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "UE5Coro",
+			"Enabled": true
+		},
+		{
+			"Name": "UE5CoroAI",
+			"Enabled": true
+		}
+	]
+}
