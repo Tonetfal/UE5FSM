@@ -330,7 +330,8 @@ protected:
 
 private:
 	/** Global state the state machine is in. If not specified, it won't have any. */
-	UPROPERTY(EditDefaultsOnly, Category="State Machine", meta=(MustImplement="GlobalMachineStateInterface"))
+	UPROPERTY(EditDefaultsOnly, Category="State Machine",
+		meta=(MustImplement="/Script/UE5FSM.GlobalMachineStateInterface"))
 	TSubclassOf<UMachineState> GlobalStateClass = nullptr;
 
 	/**
