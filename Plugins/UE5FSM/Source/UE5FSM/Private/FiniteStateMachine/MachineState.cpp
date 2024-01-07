@@ -115,7 +115,7 @@ bool UMachineState::RegisterLabel(FGameplayTag Label, const FLabelSignature& Cal
 		return false;
 	}
 
-	FSM_LOG(Verbose, "Label [%s] has been registered.", *Label.ToString());
+	FSM_LOG(Log, "Label [%s] has been registered.", *Label.ToString());
 	RegisteredLabels.Add(Label, Callback);
 	return true;
 }
@@ -133,12 +133,13 @@ int32 UMachineState::StopRunningLabels()
 		Coroutine.Cancel();
 		StoppedCoroutines++;
 
-		FSM_LOG(Verbose, "Label [%s] in state [%s] has been stopped.", *DebugData, *GetName());
+		FSM_LOG(VeryVerbose, "Label [%s] in state [%s] has been stopped.", *DebugData, *GetName());
 	}
 
 	if (StoppedCoroutines > 0)
 	{
-		FSM_LOG(VeryVerbose, "All [%d] running coroutines in state [%s] have been cancelled.",
+
+		FSM_LOG(Verbose, "All [%d] running coroutines in state [%s] have been cancelled.",
 			StoppedCoroutines, *GetName());
 	}
 
@@ -153,7 +154,7 @@ int32 UMachineState::ClearInvalidLatentExecutionCancellers()
 	{
 		if (!Item.CancelDelegate.IsBound())
 		{
-			FSM_LOG(Verbose, "Secondary coroutine [%s] in state [%s] has been cleared up as it has finished the "
+			FSM_LOG(VeryVerbose, "Secondary coroutine [%s] in state [%s] has been cleared up as it has finished the "
 				"execution.", *Item.DebugData, *GetName());
 			return true;
 		}
@@ -163,7 +164,7 @@ int32 UMachineState::ClearInvalidLatentExecutionCancellers()
 
 	if (RemovedEntries > 0)
 	{
-		FSM_LOG(VeryVerbose, "All [%d] running invalid latent execution cancellers in state [%s] have been cancelled.",
+		FSM_LOG(Verbose, "All [%d] running invalid latent execution cancellers in state [%s] have been cancelled.",
 			RemovedEntries, *GetName());
 	}
 
@@ -194,7 +195,7 @@ int32 UMachineState::StopLatentExecution_Implementation()
 	{
 		if (LatentExecution.CancelDelegate.ExecuteIfBound())
 		{
-			FSM_LOG(Verbose, "Secondary coroutine [%s] in state [%s] has been cancelled.",
+			FSM_LOG(VeryVerbose, "Secondary coroutine [%s] in state [%s] has been cancelled.",
 				*LatentExecution.DebugData, *GetName());
 
 			StoppedCoroutines++;
@@ -276,7 +277,7 @@ void UMachineState::SetInitialLabel(FGameplayTag Label)
 
 void UMachineState::OnStateAction(EStateAction StateAction, void* OptionalData)
 {
-	FSM_LOG(Verbose, "[%s] has been [%s].", *GetName(), *UEnum::GetValueAsString(StateAction));
+	FSM_LOG(Log, "[%s] has been [%s].", *GetName(), *UEnum::GetValueAsString(StateAction));
 
 	switch (StateAction)
 	{

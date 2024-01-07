@@ -6,12 +6,12 @@
 #include "GameFramework/PlayerState.h"
 
 #ifdef FSM_EXTEREME_VERBOSITY
-	#define FSM_EXTEREME_VERBOSITY_STR FString::Printf(TEXT("Owner [%s]"), *GetNameSafe(GetOwner()))
+	#define FSM_EXTEREME_VERBOSITY_STR FString::Printf(TEXT("Owner [%s] - "), *GetNameSafe(GetOwner()))
 #else
 	#define FSM_EXTEREME_VERBOSITY_STR TEXT("")
 #endif
 
-#define FSM_LOG(VERBOSITY, MESSAGE, ...) UE_LOG(LogFiniteStateMachine, VERBOSITY, TEXT("%s - %s"), \
+#define FSM_LOG(VERBOSITY, MESSAGE, ...) UE_LOG(LogFiniteStateMachine, VERBOSITY, TEXT("%s%s"), \
 	*FSM_EXTEREME_VERBOSITY_STR, *FString::Printf(TEXT(MESSAGE), ## __VA_ARGS__))
 
 /**
@@ -641,7 +641,7 @@ UMachineState* UFiniteStateMachine::RegisterState_Implementation(TSubclassOf<UMa
 
 	State->SetStateMachine(this);
 
-	FSM_LOG(VeryVerbose, "Machine state [%s] has been registered.", *State->GetName());
+	FSM_LOG(Log, "Machine state [%s] has been registered.", *State->GetName());
 
 	RegisteredStates.Add(State);
 	return State;
