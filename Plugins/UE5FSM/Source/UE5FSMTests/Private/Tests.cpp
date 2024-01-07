@@ -4,6 +4,7 @@
 #include "MachineState_ExternalPushPopTest.h"
 #include "MachineState_LatentTest.h"
 #include "MachineState_PushPopTest.h"
+#include "MachineState_StartWithNotDefaultLabel.h"
 #include "MachineState_StatesBlocklistTest.h"
 #include "Misc/AutomationTest.h"
 #include "Tests/AutomationCommon.h"
@@ -710,14 +711,14 @@ bool FFiniteStateMachineExternalPushPopTest::RunTest(const FString& Parameters)
 
 	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest1, "Begin", true));
 
-	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f)); // tick
 	ADD_LATENT_AUTOMATION_COMMAND(FPushState(this, &TestActor, UMachineState_ExternalPushPopTest2::StaticClass(), TAG_StateMachine_Label_Default));
 	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_ExternalPushPopTest2::StaticClass()));
 
 	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest1, "Paused", true));
 	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest2, "Pushed", true));
 
-	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f)); // tick
 	ADD_LATENT_AUTOMATION_COMMAND(FPushState(this, &TestActor, UMachineState_ExternalPushPopTest3::StaticClass(), TAG_StateMachine_Label_Default));
 	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_ExternalPushPopTest3::StaticClass()));
 
@@ -729,14 +730,14 @@ bool FFiniteStateMachineExternalPushPopTest::RunTest(const FString& Parameters)
 	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest3, "Post default label", true));
 
 	ADD_LATENT_AUTOMATION_COMMAND(FPopState(this, &TestActor, UMachineState_ExternalPushPopTest2::StaticClass()));
-	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f)); // tick
 
 	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest3, "Popped", true));
 	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest2, "Resumed", true));
 	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest2, "Post default label", true));
 
 	ADD_LATENT_AUTOMATION_COMMAND(FPopState(this, &TestActor, UMachineState_ExternalPushPopTest1::StaticClass()));
-	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f)); // tick
 
 	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest2, "Popped", true));
 	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest1, "Resumed", true));
@@ -745,6 +746,62 @@ bool FFiniteStateMachineExternalPushPopTest::RunTest(const FString& Parameters)
 	ADD_LATENT_AUTOMATION_COMMAND(FPopState(this, &TestActor, nullptr));
 
 	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_ExternalPushPopTest1, "Popped", true));
+
+	// Check whether all predicted events took place in the correct order from the correct states
+	ADD_LATENT_AUTOMATION_COMMAND(FCompareTestMessages(this, ExpectedTestMessages));
+
+	// Finish test
+	ADD_LATENT_AUTOMATION_COMMAND(FEndLatentTest());
+	ADD_LATENT_AUTOMATION_COMMAND(FEndPlayMapCommand());
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineStartWithNotDefaultLabel, "UE5FSM.StartWithNotByDefaultLabelTest",
+	EAutomationTestFlags::ApplicationContextMask |
+	EAutomationTestFlags::HighPriority |
+	EAutomationTestFlags::ProductFilter);
+
+bool FFiniteStateMachineStartWithNotDefaultLabel::RunTest(const FString& Parameters)
+{
+	static TArray<FStateMachineTestMessage> ExpectedTestMessages;
+	ExpectedTestMessages.Empty();
+
+	// Setup environment and test objects
+	ADD_LATENT_AUTOMATION_COMMAND(FStartLatentTest());
+	ADD_LATENT_AUTOMATION_COMMAND(FEditorLoadMap(FString("/Engine/Maps/Entry")));
+	ADD_LATENT_AUTOMATION_COMMAND(FStartPIECommand(true));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.f));
+	ADD_LATENT_AUTOMATION_COMMAND(FCreateTestActor(this, &TestActor));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FRegisterState(this, &TestActor, UMachineState_StartWithNotDefaultLabel::StaticClass()));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FGotoState(this, &TestActor, UMachineState_StartWithNotDefaultLabel::StaticClass(), TAG_StateMachine_Label_Default));
+	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_StartWithNotDefaultLabel::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f)); // tick
+	ADD_LATENT_AUTOMATION_COMMAND(FPopState(this, &TestActor, nullptr));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_StartWithNotDefaultLabel, "Begin", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_StartWithNotDefaultLabel, "Post test label", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_StartWithNotDefaultLabel, "Popped", true));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FGotoState(this, &TestActor, UMachineState_StartWithNotDefaultLabel::StaticClass(), TAG_StateMachine_Label_Test));
+	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_StartWithNotDefaultLabel::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f)); // tick
+	ADD_LATENT_AUTOMATION_COMMAND(FPopState(this, &TestActor, nullptr));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_StartWithNotDefaultLabel, "Begin", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_StartWithNotDefaultLabel, "Post test label", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_StartWithNotDefaultLabel, "Popped", true));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FGotoState(this, &TestActor, UMachineState_StartWithNotDefaultLabel::StaticClass(), {}));
+	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_StartWithNotDefaultLabel::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f)); // tick
+	ADD_LATENT_AUTOMATION_COMMAND(FPopState(this, &TestActor, nullptr));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_StartWithNotDefaultLabel, "Begin", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_StartWithNotDefaultLabel, "Post test label", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_StartWithNotDefaultLabel, "Popped", true));
 
 	// Check whether all predicted events took place in the correct order from the correct states
 	ADD_LATENT_AUTOMATION_COMMAND(FCompareTestMessages(this, ExpectedTestMessages));
