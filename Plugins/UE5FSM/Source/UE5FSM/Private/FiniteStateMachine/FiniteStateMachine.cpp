@@ -436,6 +436,17 @@ bool UFiniteStateMachine::PopState()
 	return true;
 }
 
+int32 UFiniteStateMachine::ClearStates()
+{
+	int32 StatesPopped = 0;
+	while (!StatesStack.IsEmpty() && PopState())
+	{
+		StatesPopped++;
+	}
+
+	return StatesPopped;
+}
+
 int32 UFiniteStateMachine::StopEveryLatentExecution()
 {
 	int32 StoppedLatentExecutios = 0;
@@ -534,6 +545,11 @@ UMachineState* UFiniteStateMachine::GetState(TSubclassOf<UMachineState> InStateC
 	}
 
 	return FoundState;
+}
+
+TSubclassOf<UMachineState> UFiniteStateMachine::GetInitialMachineState() const
+{
+	return InitialState;
 }
 
 UMachineStateData* UFiniteStateMachine::GetStateData(TSubclassOf<UMachineState> InStateClass,

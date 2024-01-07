@@ -115,6 +115,12 @@ public:
 	bool PopState();
 
 	/**
+	 * Clear all states from the stack leaving it empty.
+	 * @return	Amount of states popped.
+	 */
+	int32 ClearStates();
+
+	/**
 	 * Stop any latent execution of EVERY state known to this state machine. Doesn't interrupt label execution.
 	 * @return	Amount of latent executions stopped.
 	 *
@@ -175,6 +181,12 @@ public:
 	 */
 	template<typename UserClass>
 	UserClass* GetStateChecked() const;
+
+	/**
+	 * Get state the state machine starts with by default.
+	 * @return	Initial machine state.
+	 */
+	TSubclassOf<UMachineState> GetInitialMachineState() const;
 
 	/**
 	 * Get data of a given state of a specified type.
