@@ -683,7 +683,8 @@ void UFiniteStateMachine::GotoState_Implementation(TSubclassOf<UMachineState> In
 		StatesStack.Pop();
 	}
 
-	if (ActiveState != State || bForceEvents)
+	const bool bShouldFireEvents = ActiveState != State || bForceEvents;
+	if (bShouldFireEvents)
 	{
 		TSubclassOf<UMachineState> PreviousStateClass = nullptr;
 		if (ActiveState.IsValid())
@@ -693,7 +694,6 @@ void UFiniteStateMachine::GotoState_Implementation(TSubclassOf<UMachineState> In
 		}
 
 		ActiveState = State;
-		ActiveState->OnStateAction(EStateAction::Begin, PreviousStateClass);
 	}
 
 	// Keep track of the stack without notifying the state, as we're not explicitely pushing/popping
@@ -701,6 +701,12 @@ void UFiniteStateMachine::GotoState_Implementation(TSubclassOf<UMachineState> In
 
 	// Tell the active state the requested label
 	ActiveState->GotoLabel(Label);
+
+	if (bShouldFireEvents)
+	{
+		// Tell the state what's happening to it
+		ActiveState->OnStateAction(EStateAction::Begin, PreviousStateClass);
+	}
 }
 
 TCoroutine<> UFiniteStateMachine::PushState_Implementation(TSubclassOf<UMachineState> InStateClass,
@@ -725,8 +731,12 @@ TCoroutine<> UFiniteStateMachine::PushState_Implementation(TSubclassOf<UMachineS
 
 		// Keep track of the stack; Notify new state about the action and requested label
 		StatesStack.Push(InStateClass);
-		ActiveState->OnStateAction(EStateAction::Push);
+
+		// Tell the active state the requested label
 		ActiveState->GotoLabel(Label);
+
+		// Tell the state what's happening to it
+		ActiveState->OnStateAction(EStateAction::Push);
 	}
 
 	// Return code execution only after the paused state gets resumed
