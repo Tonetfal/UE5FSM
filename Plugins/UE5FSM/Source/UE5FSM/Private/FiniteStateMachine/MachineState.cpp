@@ -61,12 +61,14 @@ FString UMachineState::GetDebugData() const
 
 void UMachineState::Begin(TSubclassOf<UMachineState> PreviousState)
 {
-	// Empty
+	InitState();
 }
 
 void UMachineState::End(TSubclassOf<UMachineState> NewState)
 {
 	ensureMsgf(!bIsActivatingLabel, TEXT("Ending a state while a label is being activated is prohibited."));
+
+	ClearState();
 
 	StopRunningLabels();
 	StopLatentExecution_Implementation();
@@ -75,11 +77,13 @@ void UMachineState::End(TSubclassOf<UMachineState> NewState)
 
 void UMachineState::Pushed()
 {
-	// Empty
+	InitState();
 }
 
 void UMachineState::Popped()
 {
+	ClearState();
+
 	StopRunningLabels();
 	StopLatentExecution_Implementation();
 	ActiveLabel = TAG_StateMachine_Label_Default;
@@ -91,6 +95,16 @@ void UMachineState::Paused()
 }
 
 void UMachineState::Resumed()
+{
+	// Empty
+}
+
+void UMachineState::InitState()
+{
+	// Empty
+}
+
+void UMachineState::ClearState()
 {
 	// Empty
 }

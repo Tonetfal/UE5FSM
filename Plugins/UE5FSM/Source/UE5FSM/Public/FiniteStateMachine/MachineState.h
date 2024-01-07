@@ -223,6 +223,18 @@ protected:
 	virtual void Resumed();
 
 	/**
+	 * Called when the state either begins or get pushed to the stack.
+	 * @see		UMachineState::Begin, UMachineState::Pushed
+	 */
+	virtual void InitState();
+
+	/**
+	 * Called when the state either ends or get popped from the stack.
+	 * @see		UMachineState::End, UMachineState::Popped
+	 */
+	virtual void ClearState();
+
+	/**
 	 * Register a new label this state contains.
 	 * @param	Label gameplay tag associated with the label.
 	 * @param	Callback function to call when a label is activated.

@@ -699,8 +699,7 @@ void UFiniteStateMachine::GotoState_Implementation(TSubclassOf<UMachineState> In
 		StatesStack.Pop();
 	}
 
-	const bool bShouldFireEvents = ActiveState != State || bForceEvents;
-	if (bShouldFireEvents)
+	if (ActiveState != State || bForceEvents)
 	{
 		TSubclassOf<UMachineState> PreviousStateClass = nullptr;
 		if (ActiveState.IsValid())
@@ -710,18 +709,20 @@ void UFiniteStateMachine::GotoState_Implementation(TSubclassOf<UMachineState> In
 		}
 
 		ActiveState = State;
-	}
 
-	// Keep track of the stack without notifying the state, as we're not explicitely pushing/popping
-	StatesStack.Push(InStateClass);
+		// Keep track of the stack without notifying the state, as we're not explicitely pushing/popping
+		StatesStack.Push(InStateClass);
 
-	// Tell the active state the requested label
-	ActiveState->GotoLabel(Label);
+		// Tell the active state the requested label
+		ActiveState->GotoLabel(Label);
 
-	if (bShouldFireEvents)
-	{
 		// Tell the state what's happening to it
 		ActiveState->OnStateAction(EStateAction::Begin, PreviousStateClass);
+	}
+	else
+	{
+		// Keep track of the stack without notifying the state, as we're not explicitely pushing/popping
+		StatesStack.Push(InStateClass);
 	}
 }
 
