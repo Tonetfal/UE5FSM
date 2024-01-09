@@ -7,6 +7,8 @@
 
 using namespace UE5Coro;
 
+UE5FSM_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Default);
+
 /**
  * Component to manage Machine States defining behavior of an object in an easy way.
  *
@@ -29,7 +31,7 @@ using namespace UE5Coro;
  *   - If you want to assign them in C++ though, use the SetInitialState() and SetGlobalState(). Note that global state
  *   can be set during initialization only, while normal states can be switched at any time after initialization.
  * - To switch behaviors use GotoState(), PushState(), PopState(), PauseState(), ResumeState(), and GotoLabel().
- * - To access data a state wants to expose, use the GetStateData().
+ * - To access data state use GetStateData().
  */
 UCLASS(Config="Engine", DefaultConfig, ClassGroup=("Finite State Machine"), meta=(BlueprintSpawnableComponent))
 class UE5FSM_API UFiniteStateMachine
@@ -64,7 +66,7 @@ public:
 	 * @param	InStateClass state to start with.
 	 * @param	Label label to start the state at.
 	 */
-	void SetInitialState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = FGameplayTag::EmptyTag);
+	void SetInitialState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default);
 
 	/**
 	 * Set global state the state machine will be in.
@@ -84,7 +86,7 @@ public:
 	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
 	 * GotoState).
 	 */
-	bool GotoState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = FGameplayTag::EmptyTag,
+	bool GotoState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default,
 		bool bForceEvents = true);
 
 	/**
@@ -102,7 +104,7 @@ public:
 	 * @param	bOutPrematureResult output parameter. Boolean to use when you want to use the function result before it
 	 * returns code execution.
 	 */
-	TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = FGameplayTag::EmptyTag,
+	TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default,
 		bool* bOutPrematureResult = nullptr);
 
 	/**
@@ -125,7 +127,7 @@ public:
 	 * @return	Amount of latent executions stopped.
 	 *
 	 * @note	If a latent execution is terminated while the state is paused, it's not going to carry on the execution
-	 * unlles the state becomes active.
+	 * unless the state becomes active.
 	 * @see		UMachineState::RunLatentExecution()
 	 */
 	int32 StopEveryLatentExecution();
@@ -134,7 +136,7 @@ public:
 	 * Stop all latent functions (coroutines) of EVERY state that is present on stack regardless of the state.
 	 * @return	Amount of latent executions stopped.
 	 */
-	int32 StopEveryRunningLabels();
+	int32 StopEveryRunningLabel();
 
 	/**
 	 * Check whether a given state is active.
@@ -255,6 +257,11 @@ public:
 	 */
 	template<typename T>
 	T* GetAvatarChecked() const;
+
+	/**
+	 * Shorthand for GetWorld()->GetTimerManager().
+	 */
+	FTimerManager& GetWorldTimerManager() const;
 
 private:
 	/**

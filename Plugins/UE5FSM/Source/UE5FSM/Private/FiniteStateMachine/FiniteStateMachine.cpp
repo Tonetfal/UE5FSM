@@ -44,12 +44,12 @@ void UFiniteStateMachine::Activate(bool bReset)
 	const bool bMyIsActive = IsActive();
 	if (bMyIsActive)
 	{
-		GetWorld()->GetTimerManager().SetTimer(CancellersCleaningTimerHandle, this,
+		GetWorldTimerManager().SetTimer(CancellersCleaningTimerHandle, this,
 			&ThisClass::ClearStatesInvalidLatentExecutionCancellers, StateExecutionCancellersClearingInterval, true);
 	}
 	else
 	{
-		GetWorld()->GetTimerManager().ClearTimer(CancellersCleaningTimerHandle);
+		GetWorldTimerManager().ClearTimer(CancellersCleaningTimerHandle);
 	}
 
 	if (bMyIsActive && bActiveStatesBegan)
@@ -83,7 +83,7 @@ void UFiniteStateMachine::Activate(bool bReset)
 		}
 
 		// If state machine was deactivated, we don't want anything to run
-		StopEveryRunningLabels();
+		StopEveryRunningLabel();
 	}
 
 	SetComponentTickEnabled(bMyIsActive);
@@ -142,7 +142,7 @@ void UFiniteStateMachine::UninitializeComponent()
 
 	// Sanity check
 	StopEveryLatentExecution();
-	StopEveryRunningLabels();
+	StopEveryRunningLabel();
 
 	for (const TObjectPtr<UMachineState> State : RegisteredStates)
 	{
@@ -181,7 +181,7 @@ bool UFiniteStateMachine::RegisterState(TSubclassOf<UMachineState> InStateClass)
 
 	if (InStateClass->ClassFlags & CLASS_Abstract)
 	{
-		FSM_LOG(Warning, "Machine state class is abstract.");
+		FSM_LOG(Warning, "Machine state class [%s] is abstract.", *InStateClass->GetName());
 		return false;
 	}
 
@@ -200,12 +200,6 @@ void UFiniteStateMachine::SetInitialState(TSubclassOf<UMachineState> InStateClas
 	if (IsValid(InitialState) || !ensure(!HasBeenInitialized()))
 	{
 		return;
-	}
-
-	if (!Label.IsValid())
-	{
-		// If label has not been specified, use the default one
-		Label = TAG_StateMachine_Label_Default;
 	}
 
 	if (IsValid(InStateClass))
@@ -306,12 +300,6 @@ bool UFiniteStateMachine::GotoState(TSubclassOf<UMachineState> InStateClass, FGa
 		return false;
 	}
 
-	if (!Label.IsValid())
-	{
-		// If label has not been specified, use the default one
-		Label = TAG_StateMachine_Label_Default;
-	}
-
 	if (!UMachineState::IsLabelTagCorrect(Label))
 	{
 		FSM_LOG(Warning, "Label [%s] is of wrong tag hierarchy.", *Label.ToString());
@@ -382,12 +370,6 @@ TCoroutine<> UFiniteStateMachine::PushState(TSubclassOf<UMachineState> InStateCl
 		co_return;
 	}
 
-	if (!Label.IsValid())
-	{
-		// If label has not been specified, use the default one
-		Label = TAG_StateMachine_Label_Default;
-	}
-
 	if (!UMachineState::IsLabelTagCorrect(Label))
 	{
 		FSM_LOG(Warning, "Label [%s] is of wrong tag hierarchy.", *Label.ToString());
@@ -454,7 +436,7 @@ int32 UFiniteStateMachine::StopEveryLatentExecution()
 	return StoppedLatentExecutios;
 }
 
-int32 UFiniteStateMachine::StopEveryRunningLabels()
+int32 UFiniteStateMachine::StopEveryRunningLabel()
 {
 	int32 StoppedLabels  = 0;
 	for (const TObjectPtr<UMachineState> State : RegisteredStates)
@@ -618,6 +600,14 @@ AActor* UFiniteStateMachine::GetAvatar() const
 	}
 
 	return Owner;
+}
+
+FTimerManager& UFiniteStateMachine::GetWorldTimerManager() const
+{
+	const UWorld* World = GetWorld();
+	check(IsValid(World));
+
+	return World->GetTimerManager();
 }
 
 void UFiniteStateMachine::BeginActiveStates()

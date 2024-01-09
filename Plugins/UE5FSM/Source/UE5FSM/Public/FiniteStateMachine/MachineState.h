@@ -80,9 +80,6 @@ UE5FSM_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Default);
  * Example:
  * - LatentExecution(LIFT(AI::AIMoveTo), Controller, Vector);
  * - LatentExecution(LIFT(AI::AIMoveTo), Controller, Actor);
- *
- * Not required for:
- * - LatentExecution(Latent::Seconds, Controller, Actor);
  */
 #define LIFT(FUNCTION) [this] <typename... TArgs> (TArgs&&... Args) { return FUNCTION(Forward<TArgs>(Args)...); }
 
@@ -434,7 +431,7 @@ protected:
 	 * Get current game time in seconds.
 	 * @return	Game time in seconds.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintPure, meta=(CompactNodeTitle="Get time"))
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta=(CompactNodeTitle="Get Time"))
 	float GetTime() const;
 
 	/**
@@ -526,7 +523,7 @@ TCoroutine<> UMachineState::RunLatentExecutionExt(TFunction Function, FString De
 	// Save debug data
 	LatentExecutionWrapper.DebugData = DebugInfo;
 
-#ifdef FSM_EXTEREME_VERBOSITY
+#ifdef FSM_EXTREME_VERBOSITY
 	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("%s"), *GetDebugString(LatentExecutionWrapper.DebugData));
 #endif
 
