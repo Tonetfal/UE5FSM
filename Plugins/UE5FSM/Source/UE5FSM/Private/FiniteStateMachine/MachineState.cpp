@@ -296,7 +296,7 @@ void UMachineState::OnStateAction(EStateAction StateAction, void* OptionalData)
 
 	// Save for debug purposes
 	LastStateAction = StateAction;
-	LastStateActionTime = GetWorld()->GetTimeSeconds();
+	LastStateActionTime = GetTime();
 
 	// Notify about a state action
 	OnStateActionDelegate.Broadcast(StateAction);
@@ -383,7 +383,7 @@ float UMachineState::TimeSince(float Time) const
 	return TimeSince;
 }
 
-FTimerManager& UMachineState::GetTimerManager()
+FTimerManager& UMachineState::GetTimerManager() const
 {
 	const UWorld* World = GetWorld();
 	check(IsValid(World));
