@@ -47,6 +47,7 @@ public:
 	UFiniteStateMachine();
 
 	//~UActorComponent Interface
+	virtual void PostReinitProperties() override;
 	virtual void Activate(bool bReset) override;
 	virtual void InitializeComponent() override;
 	virtual void UninitializeComponent() override;

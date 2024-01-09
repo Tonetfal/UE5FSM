@@ -37,6 +37,22 @@ UFiniteStateMachine::UFiniteStateMachine()
 	bAutoActivate = true;
 }
 
+void UFiniteStateMachine::PostReinitProperties()
+{
+	Super::PostReinitProperties();
+
+	for (const TSubclassOf<UMachineState> StateClass : InitialStateClassesToRegister)
+	{
+		if (IsValid(StateClass))
+		{
+			ensureMsgf(!StateClass->ImplementsInterface(UGlobalMachineStateInterface::StaticClass()),
+				TEXT("InitialStateClassesToRegister container contains a global machine state [%s]. "
+					"Remove it out of the array as global machine state will be automatically registered if it's "
+					"assigned to the GlobalStateClass"), *StateClass->GetName());
+		}
+	}
+}
+
 void UFiniteStateMachine::Activate(bool bReset)
 {
 	Super::Activate(bReset);
@@ -97,14 +113,25 @@ void UFiniteStateMachine::InitializeComponent()
 	}
 
 	// Dispatch all the states
-	for (const TSubclassOf<UMachineState> State : InitialStateClassesToRegister)
+	for (const TSubclassOf<UMachineState> StateClass : InitialStateClassesToRegister)
 	{
-		RegisterState(State);
+		if (IsValid(StateClass))
+		{
+			ensureMsgf(!StateClass->ImplementsInterface(UGlobalMachineStateInterface::StaticClass()),
+				TEXT("InitialStateClassesToRegister container contains a global machine state [%s]. "
+					"Remove it out of the array as global machine state will be automatically registered if it's "
+					"assigned to the GlobalStateClass"), *StateClass->GetName());
+		}
+
+		RegisterState(StateClass);
 	}
 
 	// Can remain nullptr
 	if (IsValid(GlobalStateClass))
 	{
+		// Automatically register the global state
+		RegisterState(GlobalStateClass);
+
 		UMachineState* GlobalState = FindStateChecked(GlobalStateClass);
 		ActiveGlobalState = GlobalState;
 	}
