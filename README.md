@@ -5,8 +5,8 @@ The tool is developed with a focus on gameplay logic to facilitate the developme
 
 ## Installation
 
-Download the release that you wish to use from the [Release]() page, and copy its Plugins directory into your 
-project's root.
+Download the release that you wish to use from the [Release](https://github.com/Tonetfal/UE5FSM/releases) page, and copy 
+its Plugins directory into your project's root.
 
 The plugin is dependant on [UE5Coro](https://github.com/landelare/ue5coro). Refer to its documentation for the 
 installation process and other features.
