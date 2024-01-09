@@ -183,7 +183,6 @@ int32 UMachineState::StopLatentExecution()
 	}
 
 	const int32 Num = StateMachine->StopEveryLatentExecution();
-	StopLatentExecution_Custom();
 	return Num;
 }
 
@@ -213,6 +212,9 @@ int32 UMachineState::StopLatentExecution_Implementation()
 	}
 
 	RunningLatentExecutions.Empty();
+
+	// Allow users to do some custom clean up
+	StopLatentExecution_Custom();
 
 	return StoppedCoroutines;
 }
