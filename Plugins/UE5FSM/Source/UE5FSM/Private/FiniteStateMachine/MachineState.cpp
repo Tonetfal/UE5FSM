@@ -301,7 +301,7 @@ void UMachineState::OnStateAction(EStateAction StateAction, void* OptionalData)
 	LastStateActionTime = GetTime();
 
 	// Notify about a state action
-	OnStateActionDelegate.Broadcast(StateAction);
+	OnStateActionDelegate.Broadcast(this, StateAction);
 }
 
 bool UMachineState::CanSafelyDeactivate(FString& OutReason) const

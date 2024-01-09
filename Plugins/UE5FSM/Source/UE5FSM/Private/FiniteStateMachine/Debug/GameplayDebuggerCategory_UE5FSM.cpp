@@ -2,6 +2,7 @@
 
 #if WITH_UE5FSM_DEBUGGER
 
+#include "Engine/Canvas.h"
 #include "FiniteStateMachine/FiniteStateMachine.h"
 
 FGameplayDebuggerCategory_UE5FSM::FGameplayDebuggerCategory_UE5FSM()
@@ -29,6 +30,21 @@ static FSerializedFSMData SerializeFSMData(const UFiniteStateMachine* FiniteStat
 	}
 
 	ReturnValue.RegisteredStateClasses = FiniteStateMachine->GetRegisteredStateClasses();
+	const TArray<UFiniteStateMachine::FDebugStateAction> LastActions = FiniteStateMachine->GetLastStateActionsStack();
+	for (const UFiniteStateMachine::FDebugStateAction Action : LastActions)
+	{
+		if (Action.Action == EStateAction::End || Action.Action == EStateAction::Pop)
+		{
+			ReturnValue.LastTerminatedStates.Add(Action);
+		}
+	}
+
+	// Do not show that many entries, only show the last ones
+	constexpr int32 MaxLastTerminatedEntries = 3;
+	if (ReturnValue.LastTerminatedStates.Num() > MaxLastTerminatedEntries)
+	{
+		ReturnValue.LastTerminatedStates.SetNum(MaxLastTerminatedEntries);
+	}
 
 	const TArray<TSubclassOf<UMachineState>>& StateStack = FiniteStateMachine->GetStatesStack();
 	auto It = StateStack.CreateConstIterator();
@@ -76,12 +92,11 @@ void FGameplayDebuggerCategory_UE5FSM::CollectData(APlayerController* OwnerPC, A
 	}
 }
 
+constexpr FColor White(255, 255, 255);
+constexpr FColor Gray(128, 128, 128);
+constexpr FColor Yellow(255, 255, 0);
 static FColor StateActionToColor(EStateAction StateAction)
 {
-	constexpr FColor White(255, 255, 255);
-	constexpr FColor Gray(128, 128, 128);
-	constexpr FColor Yellow(255, 255, 0);
-
 	switch (StateAction)
 	{
 	case EStateAction::None: return Gray;
@@ -122,8 +137,32 @@ static void PrintRegisteredStates(const FSerializedFSMData& Data, FGameplayDebug
 	}
 }
 
+static void PrintTerminatedStates(const FSerializedFSMData& Data, FGameplayDebuggerCanvasContext& CanvasContext)
+{
+	if (Data.LastTerminatedStates.IsEmpty())
+	{
+		return;
+	}
+
+	CanvasContext.Print(TEXT("\nLast terminated states:"));
+	for (const UFiniteStateMachine::FDebugStateAction& StateData : Data.LastTerminatedStates)
+	{
+		FString LastActionString = UEnum::GetValueAsString(StateData.Action);
+		LastActionString.RemoveFromStart("EStateAction::");
+
+		const float TimeSinceAction = CanvasContext.GetWorld()->GetTimeSeconds() - StateData.ActionTime;
+		CanvasContext.Printf(StateActionToColor(StateData.Action), TEXT("- %s - %s (%.2fs)"),
+			*GetNameSafe(StateData.State.Get()), *LastActionString, TimeSinceAction);
+	}
+}
+
 static void PrintExtDebugData(const FSerializedFSMData& Data, FGameplayDebuggerCanvasContext& CanvasContext)
 {
+	if (Data.ExtGlobalDebugData.IsEmpty() && Data.StatesStack.IsEmpty())
+	{
+		return;
+	}
+
 	CanvasContext.Print(TEXT("\nExtended debug data:"));
 	if (!Data.ExtGlobalDebugData.IsEmpty())
 	{
@@ -137,6 +176,7 @@ static void PrintExtDebugData(const FSerializedFSMData& Data, FGameplayDebuggerC
 			CanvasContext.Printf(TEXT("- %s - %s"), *StateClass.Name, *StateClass.ExtDebugData);
 		}
 	}
+
 }
 
 void FGameplayDebuggerCategory_UE5FSM::DrawData(APlayerController* OwnerPC,
@@ -146,6 +186,7 @@ void FGameplayDebuggerCategory_UE5FSM::DrawData(APlayerController* OwnerPC,
 	{
 		PrintGlobalState(Data, CanvasContext);
 		PrintStatesStack(Data, CanvasContext);
+		PrintTerminatedStates(Data, CanvasContext);
 		PrintRegisteredStates(Data, CanvasContext);
 		PrintExtDebugData(Data, CanvasContext);
 	}

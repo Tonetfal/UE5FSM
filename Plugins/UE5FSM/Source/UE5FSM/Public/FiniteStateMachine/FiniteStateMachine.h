@@ -44,6 +44,18 @@ private:
 	friend struct FFiniteStateMachineMutex;
 
 public:
+#ifdef WITH_EDITOR
+	/** Structure to hold some debug information. */
+	struct FDebugStateAction
+	{
+	public:
+		TWeakObjectPtr<UMachineState> State = nullptr;
+		EStateAction Action = EStateAction::None;
+		float ActionTime = -1.f;
+	};
+#endif
+
+public:
 	UFiniteStateMachine();
 
 	//~UActorComponent Interface
@@ -264,6 +276,20 @@ public:
 	 */
 	FTimerManager& GetWorldTimerManager() const;
 
+#ifdef WITH_EDITOR
+	/**
+	 * Get last actions
+	 */
+	TArray<FDebugStateAction> GetLastStateActionsStack() const;
+#endif
+
+	/**
+	 * Called when our state performs an action.
+	 * @param	State state has that performed an action.
+	 * @param	StateAction the performed action.
+	 */
+	virtual void OnStateAction(UMachineState* State, EStateAction StateAction);
+
 private:
 	/**
 	 * Activate initial states.
@@ -376,6 +402,11 @@ private:
 	/** Time in seconds it takes to start clearing state execution cancellers. */
 	UPROPERTY(Config)
 	float StateExecutionCancellersClearingInterval = 60.f;
+
+#ifdef WITH_EDITOR
+	/** Container of all states that performed an action. It exists for debug purposes only. */
+	std::queue<FDebugStateAction> LastStateActionsStack;
+#endif
 
 	/** Timer associated with clearing state execution cancellers process. */
 	FTimerHandle CancellersCleaningTimerHandle;

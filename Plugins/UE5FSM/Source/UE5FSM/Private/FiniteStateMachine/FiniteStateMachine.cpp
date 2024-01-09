@@ -637,6 +637,41 @@ FTimerManager& UFiniteStateMachine::GetWorldTimerManager() const
 	return World->GetTimerManager();
 }
 
+#ifdef WITH_EDITOR
+TArray<UFiniteStateMachine::FDebugStateAction> UFiniteStateMachine::GetLastStateActionsStack() const
+{
+	TArray<FDebugStateAction> ReturnValue;
+
+	auto Deque = LastStateActionsStack._Get_container();
+	for (auto It = Deque.rbegin(); It != Deque.rend(); ++It)
+	{
+		ReturnValue.Add(*It);
+	}
+
+	return ReturnValue;
+}
+#endif
+
+void UFiniteStateMachine::OnStateAction(UMachineState* State, EStateAction StateAction)
+{
+#ifdef WITH_EDITOR
+	FDebugStateAction Action;
+	Action.State = State;
+	Action.Action = StateAction;
+	Action.ActionTime = GetWorld()->GetTimeSeconds();
+
+	// Save the action for debug purposes
+	LastStateActionsStack.push(Action);
+
+	// Don't store too many entries; a hundred should be more than enough
+	constexpr int32 MaxSize = 100;
+	while (LastStateActionsStack.size() > MaxSize)
+	{
+		LastStateActionsStack.pop();
+	}
+#endif
+}
+
 void UFiniteStateMachine::BeginActiveStates()
 {
 	ensure(!bActiveStatesBegan);
@@ -663,6 +698,7 @@ UMachineState* UFiniteStateMachine::RegisterState_Implementation(TSubclassOf<UMa
 	auto* State = NewObject<UMachineState>(Owner, InStateClass);
 	check(IsValid(State));
 
+	State->OnStateActionDelegate.AddUObject(this, &ThisClass::OnStateAction);
 	State->SetStateMachine(this);
 
 	FSM_LOG(Log, "Machine state [%s] has been registered.", *State->GetName());
@@ -805,7 +841,7 @@ TCoroutine<> UFiniteStateMachine::WaitUntilStateAction(TSubclassOf<UMachineState
 	auto OnReceived = FSimpleDelegate::CreateLambda([] { });
 	UMachineState* State = FindStateChecked(InStateClass);
 	const FDelegateHandle DelegateHandle = State->OnStateActionDelegate.AddLambda(
-		[&OnReceived, StateAction] (EStateAction InStateAction)
+		[&OnReceived, StateAction] (UMachineState* State, EStateAction InStateAction)
 	{
 		if (InStateAction == StateAction)
 		{

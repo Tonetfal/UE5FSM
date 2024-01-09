@@ -6,6 +6,7 @@
 
 #ifdef WITH_UE5FSM_DEBUGGER
 
+#include "FiniteStateMachine/FiniteStateMachine.h"
 #include "FiniteStateMachine/MachineState.h"
 #include "GameplayDebuggerCategory.h"
 
@@ -26,6 +27,7 @@ public:
 	TSubclassOf<UMachineState> GlobalStateClass = nullptr;
 	TArray<TSubclassOf<UMachineState>> RegisteredStateClasses;
 	TArray<FSerializedStateData> StatesStack;
+	TArray<UFiniteStateMachine::FDebugStateAction> LastTerminatedStates;
 	FString ExtGlobalDebugData = "";
 };
 

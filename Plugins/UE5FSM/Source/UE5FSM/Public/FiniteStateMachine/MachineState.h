@@ -142,8 +142,9 @@ public:
 	DECLARE_DELEGATE_RetVal(
 		TCoroutine<>, FLabelSignature);
 
-	DECLARE_MULTICAST_DELEGATE_OneParam(
+	DECLARE_MULTICAST_DELEGATE_TwoParams(
 		FOnStateActionSignature,
+		UMachineState* State,
 		EStateAction StateAction);
 
 public:
