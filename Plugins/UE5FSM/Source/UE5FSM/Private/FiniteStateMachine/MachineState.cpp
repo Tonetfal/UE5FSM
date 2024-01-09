@@ -1,22 +1,12 @@
 ﻿#include "FiniteStateMachine/MachineState.h"
 
 #include "FiniteStateMachine/FiniteStateMachine.h"
-#include "FiniteStateMachine/FiniteStateMachineTypes.h"
+#include "FiniteStateMachine/FiniteStateMachineLog.h"
 #include "FiniteStateMachine/MachineStateData.h"
 #include "NativeGameplayTags.h"
 
 UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_StateMachine_Label, "StateMachine.Label");
 UE_DEFINE_GAMEPLAY_TAG(TAG_StateMachine_Label_Default, "StateMachine.Label.Default");
-
-#ifdef FSM_EXTEREME_VERBOSITY
-	#define FSM_EXTEREME_VERBOSITY_STR FString::Printf(TEXT("State [%s] Owner [%s]"), \
-		*GetNameSafe(this), StateMachine.IsValid() ? *GetNameSafe(StateMachine->GetOwner()) : TEXT("Invalid"))
-#else
-	#define FSM_EXTEREME_VERBOSITY_STR TEXT("")
-#endif
-
-#define FSM_LOG(VERBOSITY, MESSAGE, ...) UE_LOG(LogFiniteStateMachine, VERBOSITY, TEXT("%s - %s"), \
-	*FSM_EXTEREME_VERBOSITY_STR, *FString::Printf(TEXT(MESSAGE), ## __VA_ARGS__))
 
 UMachineState::UMachineState()
 {

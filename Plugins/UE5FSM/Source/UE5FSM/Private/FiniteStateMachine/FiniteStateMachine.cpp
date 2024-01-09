@@ -1,18 +1,9 @@
 ﻿#include "FiniteStateMachine/FiniteStateMachine.h"
 
-#include "FiniteStateMachine/FiniteStateMachineTypes.h"
+#include "FiniteStateMachine/FiniteStateMachineLog.h"
 #include "FiniteStateMachine/MachineState.h"
 #include "FiniteStateMachine/MachineStateData.h"
 #include "GameFramework/PlayerState.h"
-
-#ifdef FSM_EXTEREME_VERBOSITY
-	#define FSM_EXTEREME_VERBOSITY_STR FString::Printf(TEXT("Owner [%s] - "), *GetNameSafe(GetOwner()))
-#else
-	#define FSM_EXTEREME_VERBOSITY_STR TEXT("")
-#endif
-
-#define FSM_LOG(VERBOSITY, MESSAGE, ...) UE_LOG(LogFiniteStateMachine, VERBOSITY, TEXT("%s%s"), \
-	*FSM_EXTEREME_VERBOSITY_STR, *FString::Printf(TEXT(MESSAGE), ## __VA_ARGS__))
 
 /**
  * Simple RAII wrapper for UFiniteStateMachineMutex::bModifyingInternalState.
