@@ -367,11 +367,14 @@ public:
 	 * @param	InStateClass state to go to.
 	 * @param	Label label to start the state with.
 	 * @return	If true, state has been successfully switched, false otherwise.
+	 * @param	bForceEvents in case of switching to the same state we're in: If true, fire end & begin events,
+	 * otherwise do not.
 	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
 	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
 	 * GotoState).
 	 */
-	bool GotoState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default);
+	bool GotoState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default,
+		bool bForceEvents = true);
 
 	/**
 	 * Go to a requested label.
@@ -384,8 +387,11 @@ public:
 	 * Push a specified state at a requested label on top of the stack.
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state with.
+	 * @param	bOutPrematureResult output parameter. Boolean to use when you want to use the function result before it
+	 * returns code execution.
 	 */
-	TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = FGameplayTag::EmptyTag);
+	TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = FGameplayTag::EmptyTag,
+		bool* bOutPrematureResult = nullptr);
 
 	/**
 	 * Pop the top-most state from stack.

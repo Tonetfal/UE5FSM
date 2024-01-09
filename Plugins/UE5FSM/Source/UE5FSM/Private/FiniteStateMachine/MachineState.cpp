@@ -324,10 +324,9 @@ FString UMachineState::GetDebugString(const FString& RunLatentExecutionExt) cons
 		*GetNameSafe(this), *StateMachine.Get()->GetOwner()->GetName(), *RunLatentExecutionExt);
 }
 
-bool UMachineState::GotoState(TSubclassOf<UMachineState> InStateClass,
-	FGameplayTag Label /*TAG_StateMachine_Label_Begin*/)
+bool UMachineState::GotoState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label, bool bForceEvents)
 {
-	return StateMachine->GotoState(InStateClass, Label);
+	return StateMachine->GotoState(InStateClass, Label, bForceEvents);
 }
 
 bool UMachineState::GotoLabel(FGameplayTag Label)
@@ -349,9 +348,10 @@ bool UMachineState::GotoLabel(FGameplayTag Label)
 	return true;
 }
 
-TCoroutine<> UMachineState::PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label)
+TCoroutine<> UMachineState::PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label,
+	bool* bOutPrematureResult)
 {
-	co_await StateMachine->PushState(InStateClass, Label);
+	co_await StateMachine->PushState(InStateClass, Label, bOutPrematureResult);
 }
 
 bool UMachineState::PopState()
