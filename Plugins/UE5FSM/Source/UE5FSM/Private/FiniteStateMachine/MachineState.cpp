@@ -186,7 +186,7 @@ int32 UMachineState::StopLatentExecution()
 	return Num;
 }
 
-void UMachineState::StopLatentExecution_Custom()
+void UMachineState::StopLatentExecution_Custom(int32 StoppedCoroutines)
 {
 	// Empty
 }
@@ -214,7 +214,7 @@ int32 UMachineState::StopLatentExecution_Implementation()
 	RunningLatentExecutions.Empty();
 
 	// Allow users to do some custom clean up
-	StopLatentExecution_Custom();
+	StopLatentExecution_Custom(StoppedCoroutines);
 
 	return StoppedCoroutines;
 }

@@ -253,8 +253,10 @@ protected:
 	 * Called after StopLatentExecution finishes executing.
 	 *
 	 * It's the place to put your custom code when latent execution is aborted.
+	 *
+	 * @param	StoppedCoroutines number of coroutines that we've been executing, but not anymore.
 	 */
-	virtual void StopLatentExecution_Custom();
+	virtual void StopLatentExecution_Custom(int32 StoppedCoroutines);
 
 private:
 	/**
@@ -390,7 +392,7 @@ public:
 	 * @param	bOutPrematureResult output parameter. Boolean to use when you want to use the function result before it
 	 * returns code execution.
 	 */
-	TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = FGameplayTag::EmptyTag,
+	TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default,
 		bool* bOutPrematureResult = nullptr);
 
 	/**
