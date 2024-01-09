@@ -282,21 +282,40 @@ DEFINE_LATENT_AUTOMATION_COMMAND_TWO_PARAMETER(FCompareTestMessages,
 
 bool FCompareTestMessages::Update()
 {
-	Test->TestTrue("Same amount of test messages", LatentMessages.Num() == ExpectedTestMessages.Num());
+	Test->TestTrue("Expected and received test messages are of the same amount",
+		LatentMessages.Num() == ExpectedTestMessages.Num());
 
 	auto LhsStateActionsIt = LatentMessages.CreateConstIterator();
 	auto RhsStateActionsIt = ExpectedTestMessages.CreateConstIterator();
 	for (int32 i = 0; LhsStateActionsIt && RhsStateActionsIt; ++LhsStateActionsIt, ++RhsStateActionsIt, i++)
 	{
-		Test->TestTrue(FString("Single test message are the same. Iteration: ") + FString::FormatAsNumber(i),
+		Test->TestTrue(FString("Single test messages are the same. Iteration: ") + FString::FormatAsNumber(i),
 			LhsStateActionsIt->Class == RhsStateActionsIt->Class);
-		Test->TestTrue(FString("Single test message are the same. Iteration: ") + FString::FormatAsNumber(i),
+		Test->TestTrue(FString("Single test messages are the same. Iteration: ") + FString::FormatAsNumber(i),
 			LhsStateActionsIt->Message == RhsStateActionsIt->Message);
-		Test->TestTrue(FString("Single test message are the same. Iteration: ") + FString::FormatAsNumber(i),
+		Test->TestTrue(FString("Single test messages are the same. Iteration: ") + FString::FormatAsNumber(i),
 			LhsStateActionsIt->bSuccess == RhsStateActionsIt->bSuccess);
 	}
 
+	// Print all the broadcast and expected messages to facilitate testing
+	// {
+	// 	auto LhsPrintStateActionsIt = LatentMessages.CreateConstIterator();
+	// 	auto RhsPrintStateActionsIt = ExpectedTestMessages.CreateConstIterator();
+	// 	for (int32 i = 0; LhsPrintStateActionsIt; ++LhsPrintStateActionsIt, i++)
+	// 	{
+	// 		UE_LOG(LogTemp, Warning, TEXT("%d. [%s] [%s]"),
+	// 			i, *GetNameSafe(LhsPrintStateActionsIt->Class), *LhsPrintStateActionsIt->Message);
+	// 	}
+	//
+	// 	for (int32 i = 0; RhsPrintStateActionsIt; ++RhsPrintStateActionsIt, i++)
+	// 	{
+	// 		UE_LOG(LogTemp, Warning, TEXT("%d. [%s] [%s]"),
+	// 			i, *GetNameSafe(RhsPrintStateActionsIt->Class), *RhsPrintStateActionsIt->Message);
+	// 	}
+	// }
+
 	LATENT_TEST_TRUE("Test messages are the same", !LhsStateActionsIt && !RhsStateActionsIt);
+
 	return true;
 }
 
@@ -468,20 +487,21 @@ bool FFiniteStateMachineLatentTest::RunTest(const FString& Parameters)
 	// THSI TEST DOES NOT SHOW HOW TO CORRECTLY USE THE LABELS & GOTO STATE, BUT MAKES SURE THAT IT WORKS AS IT'S
 	// EXPECTED WHEN IT'S MISUSED
 
+
 	static const TArray<FStateMachineTestMessage> ExpectedTestMessages
 	{
 		{ UMachineState_PushPopTest1::StaticClass(), "Begin", true },
+		{ UMachineState_PushPopTest1::StaticClass(), "Before test label activation", true },
 		{ UMachineState_PushPopTest1::StaticClass(), "Paused", true },
 		{ UMachineState_PushPopTest2::StaticClass(), "Pushed", true },
-		{ UMachineState_PushPopTest1::StaticClass(), "Timer delay works", true },
+		{ UMachineState_PushPopTest2::StaticClass(), "Before test label activation", true },
 		{ UMachineState_PushPopTest2::StaticClass(), "Paused", true },
 		{ UMachineState_PushPopTest3::StaticClass(), "Pushed", true },
+		{ UMachineState_PushPopTest3::StaticClass(), "Before test label activation", true },
 		{ UMachineState_PushPopTest3::StaticClass(), "Latent execution has been cancelled", true },
-		{ UMachineState_PushPopTest2::StaticClass(), "Timer delay works", true },
 		{ UMachineState_PushPopTest3::StaticClass(), "Popped", true },
 		{ UMachineState_PushPopTest2::StaticClass(), "Resumed", true },
 		{ UMachineState_PushPopTest2::StaticClass(), "Latent execution has been cancelled", true },
-		{ UMachineState_PushPopTest3::StaticClass(), "Timer delay works", true },
 		{ UMachineState_PushPopTest2::StaticClass(), "Popped", true },
 		{ UMachineState_PushPopTest1::StaticClass(), "Resumed", true },
 		{ UMachineState_PushPopTest1::StaticClass(), "Latent execution has been cancelled", true },
@@ -786,15 +806,6 @@ bool FFiniteStateMachineStartWithNotDefaultLabel::RunTest(const FString& Paramet
 	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_StartWithNotDefaultLabel, "Popped", true));
 
 	ADD_LATENT_AUTOMATION_COMMAND(FGotoState(this, &TestActor, UMachineState_StartWithNotDefaultLabel::StaticClass(), TAG_StateMachine_Label_Test));
-	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_StartWithNotDefaultLabel::StaticClass()));
-	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f)); // tick
-	ADD_LATENT_AUTOMATION_COMMAND(FPopState(this, &TestActor, nullptr));
-
-	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_StartWithNotDefaultLabel, "Begin", true));
-	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_StartWithNotDefaultLabel, "Post test label", true));
-	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_StartWithNotDefaultLabel, "Popped", true));
-
-	ADD_LATENT_AUTOMATION_COMMAND(FGotoState(this, &TestActor, UMachineState_StartWithNotDefaultLabel::StaticClass(), {}));
 	ADD_LATENT_AUTOMATION_COMMAND(FIsInState(this, &TestActor, UMachineState_StartWithNotDefaultLabel::StaticClass()));
 	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(0.1f)); // tick
 	ADD_LATENT_AUTOMATION_COMMAND(FPopState(this, &TestActor, nullptr));

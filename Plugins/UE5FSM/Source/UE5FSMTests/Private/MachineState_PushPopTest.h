@@ -25,8 +25,9 @@ protected:
 	TCoroutine<> Label_Test();
 	//~End of Labels
 
+
 protected:
-	TSubclassOf<UMachineState_PushPopTest> LatentPushState;
+	TSubclassOf<UMachineState_PushPopTest> LatentPushState = nullptr;
 	bool bNotifyTestFinish = false;
 	bool bCancelLatentExecution = false;
 };

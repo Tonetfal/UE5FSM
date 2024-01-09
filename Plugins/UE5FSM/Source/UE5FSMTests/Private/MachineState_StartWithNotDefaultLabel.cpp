@@ -11,7 +11,7 @@ void UMachineState_StartWithNotDefaultLabel::Begin(TSubclassOf<UMachineState> Pr
 {
 	Super::Begin(PreviousState);
 
-	GOTO_LABEL(Test);
+	GotoLabel(TAG_StateMachine_Label_Test);
 }
 
 TCoroutine<> UMachineState_StartWithNotDefaultLabel::Label_Default()

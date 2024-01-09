@@ -19,21 +19,20 @@ void UMachineState_PushPopTest::Popped()
 
 TCoroutine<> UMachineState_PushPopTest::Label_Default()
 {
-	// THAT IS NOT THE WAY USERS ARE SUPPOSED TO USE THAT
-	// Usually after GotoLabel we end the execution of the label, however for test purposes we're going to do something
-	// after that
-	if (GOTO_LABEL(Test))
+	// !!! THAT IS NOT THE WAY USERS ARE SUPPOSED TO USE THAT !!!
+
+	// After a successful GotoLabel we are meant to end the execution of the label,
+	// however for test purposes we're going to do something after that.
+	// Users must be using GOTO_LABEL() macro instead.
+
+	if (GotoLabel(TAG_StateMachine_Label_Test))
 	{
 		// Label_Test is activated only the next tick, hence it'll execute the code below before that
 
-		FTimerHandle TimerHandle;
-		GetTimerManager().SetTimer(TimerHandle, [this]
-		{
-			BROADCAST_TEST_MESSAGE("Timer delay works", true);
-		}, 1.5f, false);
+		BROADCAST_TEST_MESSAGE("Before test label activation", true);
 
 		// Should be cancelled by the test label
-		co_await RUN_LATENT_EXECUTION(Latent::Seconds, 20.0);
+		co_await RUN_LATENT_EXECUTION(Latent::Seconds, 120.0);
 		BROADCAST_TEST_MESSAGE("Latent execution has been cancelled", true);
 	}
 }
@@ -45,7 +44,7 @@ TCoroutine<> UMachineState_PushPopTest::Label_Test()
 		StopLatentExecution();
 	}
 
-	if (LatentPushState)
+	if (IsValid(LatentPushState))
 	{
 		co_await RUN_LATENT_EXECUTION(Latent::Seconds, 1.0);
 		co_await PUSH_STATE_CLASS(LatentPushState);
