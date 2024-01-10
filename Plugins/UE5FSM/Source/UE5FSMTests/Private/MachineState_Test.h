@@ -19,39 +19,39 @@ class UMachineState_Test
 	GENERATED_BODY()
 
 protected:
-	virtual void Begin(TSubclassOf<UMachineState> PreviousState) override
+	virtual void OnBegan(TSubclassOf<UMachineState> PreviousState) override
 	{
-		Super::Begin(PreviousState);
+		Super::OnBegan(PreviousState);
 		BROADCAST_TEST_MESSAGE("Begin", true);
 	}
 
-	virtual void End(TSubclassOf<UMachineState> NewState) override
+	virtual void OnEnded(TSubclassOf<UMachineState> NewState) override
 	{
-		Super::End(NewState);
+		Super::OnEnded(NewState);
 		BROADCAST_TEST_MESSAGE("End", true);
 	}
 
-	virtual void Pushed() override
+	virtual void OnPushed() override
 	{
-		Super::Pushed();
+		Super::OnPushed();
 		BROADCAST_TEST_MESSAGE("Pushed", true);
 	}
 
-	virtual void Popped() override
+	virtual void OnPopped() override
 	{
-		Super::Popped();
+		Super::OnPopped();
 		BROADCAST_TEST_MESSAGE("Popped", true);
 	}
 
-	virtual void Paused() override
+	virtual void OnPaused() override
 	{
-		Super::Paused();
+		Super::OnPaused();
 		BROADCAST_TEST_MESSAGE("Paused", true);
 	}
 
-	virtual void Resumed() override
+	virtual void OnResumed() override
 	{
-		Super::Resumed();
+		Super::OnResumed();
 		BROADCAST_TEST_MESSAGE("Resumed", true);
 	}
 };

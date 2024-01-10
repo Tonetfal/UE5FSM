@@ -191,46 +191,62 @@ protected:
 	/**
 	 * Called when state starts the execution.
 	 */
-	virtual void Begin(TSubclassOf<UMachineState> PreviousState);
+	virtual void OnBegan(TSubclassOf<UMachineState> PreviousState);
 
 	/**
 	 * Called when state terminates the execution.
 	 */
-	virtual void End(TSubclassOf<UMachineState> NewState);
+	virtual void OnEnded(TSubclassOf<UMachineState> NewState);
 
 	/**
 	 * Called when state gets pushed to the state stack.
 	 * @note	When state is pushed, Begin is not called.
 	 */
-	virtual void Pushed();
+	virtual void OnPushed();
 
 	/**
 	 * Called when state gets pushed to the state stack.
 	 * @note	When state is pushed, Begin is not called.
 	 */
-	virtual void Popped();
-
-	/**
-	 * Called when another state got pushed when we were the top-most one.
-	 */
-	virtual void Paused();
+	virtual void OnPopped();
 
 	/**
 	 * Called when another state got popped from the stack, leaving us be the top-most one.
 	 */
-	virtual void Resumed();
+	virtual void OnResumed();
 
 	/**
-	 * Called when the state either begins or get pushed to the stack.
+	 * Called when another state got pushed when we were the top-most one.
+	 */
+	virtual void OnPaused();
+
+	/**
+	 * Called when the state becomes active, or, in other words, it becomes the top-most state on the stack.
+	 * It's either just started or got resumed.
+	 * @param	StateAction state action this function was called due.
+	 */
+	virtual void OnActivated(EStateAction StateAction);
+
+	/**
+	 * Called when the state becomes inactive, or, in other words, it's not the top-most state on the stack anymore,
+	 * yet it's present. It's either not present on the stack anymore or got paused.
+	 * @param	StateAction state action this function was called due.
+	 */
+	virtual void OnDeactivated(EStateAction StateAction);
+
+	/**
+	 * Called when the state is added to the stack, i.e. it either began or got pushed on it.
+	 * @param	StateAction state action this function was called due.
 	 * @see		UMachineState::Begin, UMachineState::Pushed
 	 */
-	virtual void InitState();
+	virtual void OnAddedToStack(EStateAction StateAction);
 
 	/**
-	 * Called when the state either ends or get popped from the stack.
+	 * Called when the state is not present on the stack anymore, i.e. it either ended or got popped out of it.
+	 * @param	StateAction state action this function was called due.
 	 * @see		UMachineState::End, UMachineState::Popped
 	 */
-	virtual void ClearState();
+	virtual void OnRemovedFromStack(EStateAction StateAction);
 
 	/**
 	 * Register a new label this state contains.

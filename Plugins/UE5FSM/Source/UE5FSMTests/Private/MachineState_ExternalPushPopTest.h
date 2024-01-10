@@ -11,12 +11,6 @@ class UMachineState_ExternalPushPopTest
 	GENERATED_BODY()
 
 protected:
-	//~UMachineState_Test Interface
-	virtual void Begin(TSubclassOf<UMachineState> PreviousState) override;
-	virtual void Pushed() override;
-	virtual void Paused() override;
-	//~End of UMachineState_Test Interface
-
 	//~Labels
 	virtual TCoroutine<> Label_Default() override;
 	//~End of Labels

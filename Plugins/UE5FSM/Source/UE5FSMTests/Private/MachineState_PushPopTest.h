@@ -17,7 +17,7 @@ public:
 
 protected:
 	//~UMachineState_Test Interface
-	virtual void Popped() override;
+	virtual void OnPopped() override;
 	//~End of UMachineState_Test Interface
 
 	//~Labels

@@ -776,7 +776,7 @@ TCoroutine<> UFiniteStateMachine::PushState_Implementation(TSubclassOf<UMachineS
 	TSubclassOf<UMachineState> PausedStateClass = nullptr;
 
 	{
-		// Disallow to change out state while we're running important code
+		// Disallow to change our state while we're running important code
 		FFiniteStateMachineMutex(this);
 
 		if (ActiveState.IsValid())

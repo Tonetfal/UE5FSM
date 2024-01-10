@@ -73,38 +73,38 @@ depending on the performed action: begin, end, push, pop, resume, pause.
 The signatures:
 
 ```c++
-void UMachineState::Begin(TSubclassOf<UMachineState> PreviousState);
-void UMachineState::End(TSubclassOf<UMachineState> NewState);
-void UMachineState::Pushed();
-void UMachineState::Popped();
-void UMachineState::Paused();
-void UMachineState::Resumed();
+void UMachineState::OnBegan(TSubclassOf<UMachineState> PreviousState);
+void UMachineState::OnEnded(TSubclassOf<UMachineState> NewState);
+void UMachineState::OnPushed();
+void UMachineState::OnPopped();
+void UMachineState::OnPaused();
+void UMachineState::OnResumed();
 ```
 
-### Begin
+### OnBegan
 
 The state has been activated using `GotoState()`. Usually the state was not present on the stack beforehand, however 
 the event will be fired regardless if the client specifies `bForceEvent` argument inside the `GotoState()` as true.
 
-### End
+### OnEnded
 
 The state has been deactivated using `GotoState()` with some other state, OR the FSM has de-initialized. The state was
 the top-most state on the stack, but not anymore. Any latent code execution will be terminated.
 
-### Pushed
+### OnPushed
 
 The state has been activated using `PushState()`. The state was not present on the stack beforehand, but now it is.
 
-### Popped
+### OnPopped
 
 The state has been deactivated using `PopState()`. The state was the top-most state on the stack, but not anymore. Any
 latent code execution will be terminated.
 
-### Paused
+### OnPaused
 
 The state has been paused due to using `PushState()` with some other state. Any latent code execution will be paused. 
 
-### Resumed
+### OnResumed
 
 The state has been resumed due to using `PopState()`. The state has become the top-most one on the stack. Any latent 
 code execution that has been paused in the Paused state will resume at the point it has stopped at.
@@ -113,16 +113,31 @@ code execution that has been paused in the Paused state will resume at the point
 
 When the state either becomes relevant or irrelevant there are different events you can use. 
 
-When the state gets the `Begin` or `Pushed` events the following event is called:
+When a state becomes active, or, in other words, it becomes the top-most state on the stack, the following event is 
+called:
 
 ```c++
-void UMachineState::InitState();
+void UMachineState::OnActivated();
 ```
 
-When the state gets the `End` or `Popped` events the following event is called:
+When a state becomes inactive, or, in other words, it's not the top-most state on the stack anymore, yet it's present,
+the following event is called:
 
 ```c++
-void UMachineState::ClearState();
+void UMachineState::OnDectivated();
+```
+
+When a state is added to the stack, i.e. it either began or got pushed on it, the following event is called:
+
+```c++
+void UMachineState::OnAddedToStack(EStateAction StateAction);
+```
+
+When a state is not present on the stack anymore, i.e. it either ended or got popped out of it, the following event 
+is called:
+
+```c++
+void UMachineState::OnRemovedFromStack(EStateAction StateAction);
 ```
 
 Any latent code that is running can be terminated at any point outside that code, and even outside the state itself, 
@@ -138,6 +153,9 @@ You can add your custom behavior to it using the following method:
 void UMachineState::StopLatentExecution_Custom(int32 StoppedCoroutines);
 ```
 
+Anytime a state is removed off the stack, it terminates all labels including their latent code. Note that it is **not**
+the case when the state is paused.
+
 ## Tips
 
 When creating your own machine state you're encouraged to cache some state specific data. Caching all the objects you 
@@ -151,8 +169,8 @@ class UMyMachineState : public UMachineState
 
 protected:
 	//~UMachineState Interface
-	virtual void InitState() override;
-	virtual void ClearState() override;
+	virtual void OnActivated() override;
+	virtual void OnDeactivated() override;
 	//~End of UMachineState Interface
 	
 protected:
@@ -162,9 +180,9 @@ protected:
 };
 
 
-void UMyMachineState::InitState()
+void UMyMachineState::OnActivated()
 {
-	Super::InitState();
+	Super::OnActivated();
 
 	Controller = GetOwnerChecked<AMyController>();
 	Character = Controller->GetPawn<AMyCharacter>();
@@ -173,12 +191,12 @@ void UMyMachineState::InitState()
 	check(IsValid(Character));
 }
 
-void UMyMachineState::ClearState()
+void UMyMachineState::OnDeactivated()
 {
 	Controller.Reset();
 	Character.Reset();
 	GlobalStateData.Reset();
 	
-	Super::ClearState();
+	Super::OnDeactivated();
 }
 ```

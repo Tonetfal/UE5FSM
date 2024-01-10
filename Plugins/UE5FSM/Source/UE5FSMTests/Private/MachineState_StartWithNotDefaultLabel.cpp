@@ -7,9 +7,9 @@ UMachineState_StartWithNotDefaultLabel::UMachineState_StartWithNotDefaultLabel()
 	RegisterLabel(TAG_StateMachine_Label_Test, FLabelSignature::CreateUObject(this, &ThisClass::Label_Test));
 }
 
-void UMachineState_StartWithNotDefaultLabel::Begin(TSubclassOf<UMachineState> PreviousState)
+void UMachineState_StartWithNotDefaultLabel::OnBegan(TSubclassOf<UMachineState> PreviousState)
 {
-	Super::Begin(PreviousState);
+	Super::OnBegan(PreviousState);
 
 	GotoLabel(TAG_StateMachine_Label_Test);
 }

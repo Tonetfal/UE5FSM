@@ -79,15 +79,16 @@ default. Creating your own non-label coroutines will result into undefined behav
 
 ### Internal switch
 
-Since the states have different events upon certain actions (Begin, End, Pushed, Popped etc) we can switch the label
-right upon that, and it'll make us to ignore the label the client might've specified. At the moment of InitState the
-label the client has specified will be already assigned to us in UMachineState::ActiveLabel, and we're going to
-override it with our own label. It's not the best choice, but sometimes it might be handy.
+Since the states have different events upon certain actions (Begin, End, Push, Pop etc) we can switch the label
+right upon that, and it'll make us to ignore the label the client might've specified. At the moment of OnActivated 
+(the same applies to Begin, Push, and Resume) the label the client has specified will be already assigned to us in 
+UMachineState::ActiveLabel, and we're going to override it with our own label. It's not the best choice, but sometimes 
+it might be handy.
 
 ```c++
-void UMyMachineState::InitState()
+void UMyMachineState::OnActivated()
 {
-	Super::InitState();
+	Super::OnActivated();
 	
 	GOTO_LABEL(MyCoolLabel);
 }

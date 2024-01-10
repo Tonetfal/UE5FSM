@@ -49,54 +49,62 @@ FString UMachineState::GetDebugData() const
 	return "";
 }
 
-void UMachineState::Begin(TSubclassOf<UMachineState> PreviousState)
+void UMachineState::OnBegan(TSubclassOf<UMachineState> PreviousState)
 {
-	InitState();
+	OnAddedToStack(EStateAction::Begin);
+	OnActivated(EStateAction::Begin);
 }
 
-void UMachineState::End(TSubclassOf<UMachineState> NewState)
+void UMachineState::OnEnded(TSubclassOf<UMachineState> NewState)
 {
 	ensureMsgf(!bIsActivatingLabel, TEXT("Ending a state while a label is being activated is prohibited."));
 
-	ClearState();
+	OnRemovedFromStack(EStateAction::End);
+	OnDeactivated(EStateAction::End);
+}
 
+void UMachineState::OnPushed()
+{
+	OnAddedToStack(EStateAction::Push);
+	OnActivated(EStateAction::Push);
+}
+
+void UMachineState::OnPopped()
+{
+	OnRemovedFromStack(EStateAction::Pop);
+	OnDeactivated(EStateAction::Pop);
+}
+
+void UMachineState::OnResumed()
+{
+	OnActivated(EStateAction::Resume);
+}
+
+void UMachineState::OnPaused()
+{
+	OnDeactivated(EStateAction::Pause);
+}
+
+void UMachineState::OnActivated(EStateAction StateAction)
+{
+	// Empty
+}
+
+void UMachineState::OnDeactivated(EStateAction StateAction)
+{
+	// Empty
+}
+
+void UMachineState::OnAddedToStack(EStateAction StateAction)
+{
+	// Empty
+}
+
+void UMachineState::OnRemovedFromStack(EStateAction StateAction)
+{
 	StopRunningLabels();
 	StopLatentExecution_Implementation();
 	ActiveLabel = TAG_StateMachine_Label_Default;
-}
-
-void UMachineState::Pushed()
-{
-	InitState();
-}
-
-void UMachineState::Popped()
-{
-	ClearState();
-
-	StopRunningLabels();
-	StopLatentExecution_Implementation();
-	ActiveLabel = TAG_StateMachine_Label_Default;
-}
-
-void UMachineState::Paused()
-{
-	// Empty
-}
-
-void UMachineState::Resumed()
-{
-	// Empty
-}
-
-void UMachineState::InitState()
-{
-	// Empty
-}
-
-void UMachineState::ClearState()
-{
-	// Empty
 }
 
 bool UMachineState::RegisterLabel(FGameplayTag Label, const FLabelSignature& Callback)
@@ -142,7 +150,6 @@ int32 UMachineState::StopRunningLabels()
 
 	if (StoppedCoroutines > 0)
 	{
-
 		FSM_LOG(Verbose, "All [%d] running coroutines in state [%s] have been cancelled.",
 			StoppedCoroutines, *GetName());
 	}
@@ -287,12 +294,12 @@ void UMachineState::OnStateAction(EStateAction StateAction, void* OptionalData)
 
 	switch (StateAction)
 	{
-		case EStateAction::Begin:	Begin(static_cast<UClass*>(OptionalData)); break;
-		case EStateAction::End:		End(static_cast<UClass*>(OptionalData)); break;
-		case EStateAction::Push:	Pushed(); break;
-		case EStateAction::Pop:		Popped(); break;
-		case EStateAction::Resume:	Resumed(); break;
-		case EStateAction::Pause:	Paused(); break;
+		case EStateAction::Begin:	OnBegan(static_cast<UClass*>(OptionalData)); break;
+		case EStateAction::End:		OnEnded(static_cast<UClass*>(OptionalData)); break;
+		case EStateAction::Push:	OnPushed(); break;
+		case EStateAction::Pop:		OnPopped(); break;
+		case EStateAction::Resume:	OnResumed(); break;
+		case EStateAction::Pause:	OnPaused(); break;
 		default: checkNoEntry();
 	}
 

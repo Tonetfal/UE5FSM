@@ -18,7 +18,7 @@ public:
 
 protected:
 	//~UMachineState_Test Interface
-	virtual void Begin(TSubclassOf<UMachineState> PreviousState) override;
+	virtual void OnBegan(TSubclassOf<UMachineState> PreviousState) override;
 	//~End of UMachineState_Test Interface
 
 	//~Labels
