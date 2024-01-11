@@ -40,8 +40,8 @@ class UE5FSM_API UFiniteStateMachine
 	GENERATED_BODY()
 
 private:
-	/** Disallows to enter methods that change internal state while already changing it. */
-	friend struct FFiniteStateMachineMutex;
+	/** Disallows to enter certain methods that change internal state while already changing it. */
+	friend struct FFiniteStateMachineInternalStateModificationCounterWrapper;
 
 public:
 #ifdef WITH_EDITOR
@@ -396,8 +396,8 @@ private:
 	/** If true, initial states have been activated, false otherwise. */
 	bool bActiveStatesBegan = false;
 
-	/** If true, important internal state is being modified, false otherwise. */
-	bool bModifyingInternalState = false;
+	/** If non-zero, important internal state is being modified. */
+	int32 InternalStateModificationsCounter = 0;
 
 	/** Time in seconds it takes to start clearing state execution cancellers. */
 	UPROPERTY(Config)

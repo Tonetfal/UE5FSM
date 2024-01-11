@@ -6,26 +6,27 @@
 #include "GameFramework/PlayerState.h"
 
 /**
- * Simple RAII wrapper for UFiniteStateMachineMutex::bModifyingInternalState.
+ * Simple RAII wrapper for UFiniteStateMachineMutex::InternalStateModificationsCounter.
+ * It disallows users to call certain code while some other is running.
  */
-struct FFiniteStateMachineMutex
+struct FFiniteStateMachineInternalStateModificationCounterWrapper
 {
 public:
-	FFiniteStateMachineMutex(UFiniteStateMachine* Context)
-		: bModifyingInternalState(Context->bModifyingInternalState)
+	explicit FFiniteStateMachineInternalStateModificationCounterWrapper(UFiniteStateMachine* Context)
+		: InternalStateModificationsCounter(Context->InternalStateModificationsCounter)
 	{
-		ensure(!bModifyingInternalState);
-		bModifyingInternalState = true;
+		ensure(InternalStateModificationsCounter >= 0);
+		InternalStateModificationsCounter++;
 	}
 
-	~FFiniteStateMachineMutex()
+	~FFiniteStateMachineInternalStateModificationCounterWrapper()
 	{
-		ensure(bModifyingInternalState);
-		bModifyingInternalState = false;
+		InternalStateModificationsCounter--;
+		ensure(InternalStateModificationsCounter >= 0);
 	}
 
 private:
-	bool& bModifyingInternalState;
+	int32& InternalStateModificationsCounter;
 };
 
 UFiniteStateMachine::UFiniteStateMachine()
@@ -282,7 +283,7 @@ bool UFiniteStateMachine::GotoState(TSubclassOf<UMachineState> InStateClass, FGa
 		return false;
 	}
 
-	if (bModifyingInternalState)
+	if (InternalStateModificationsCounter > 0)
 	{
 		FSM_LOG(Warning, "Impossible to use GotoState while modifying internal state.");
 		return false;
@@ -369,7 +370,7 @@ TCoroutine<> UFiniteStateMachine::PushState(TSubclassOf<UMachineState> InStateCl
 		co_return;
 	}
 
-	if (bModifyingInternalState)
+	if (InternalStateModificationsCounter > 0)
 	{
 		FSM_LOG(Warning, "Impossible to push a state while modifying internal state.");
 		co_return;
@@ -420,7 +421,7 @@ bool UFiniteStateMachine::PopState()
 		return false;
 	}
 
-	if (bModifyingInternalState)
+	if (InternalStateModificationsCounter > 0)
 	{
 		FSM_LOG(Warning, "Impossible to pop a state while modifying internal state.");
 		return false;
@@ -733,7 +734,7 @@ void UFiniteStateMachine::GotoState_Implementation(TSubclassOf<UMachineState> In
 	bool bForceEvents)
 {
 	// Disallow to change out state while we're running important code
-	FFiniteStateMachineMutex(this);
+	FFiniteStateMachineInternalStateModificationCounterWrapper(this);
 
 	UMachineState* State = FindStateChecked(InStateClass);
 
@@ -777,7 +778,7 @@ TCoroutine<> UFiniteStateMachine::PushState_Implementation(TSubclassOf<UMachineS
 
 	{
 		// Disallow to change our state while we're running important code
-		FFiniteStateMachineMutex(this);
+		FFiniteStateMachineInternalStateModificationCounterWrapper(this);
 
 		if (ActiveState.IsValid())
 		{
@@ -800,6 +801,20 @@ TCoroutine<> UFiniteStateMachine::PushState_Implementation(TSubclassOf<UMachineS
 		ActiveState->OnStateAction(EStateAction::Push);
 	}
 
+	if (ActiveState.IsValid())
+	{
+		/**
+		 * OnPushed of the state that was asked to push might've happened something that altered the active state,
+		 * resulting it into becoming the one that we've just paused. In other words, the pushed state could pop itself
+		 * in OnPushed.
+		 */
+		const TSubclassOf<UMachineState> ActiveStateClass = ActiveState->GetClass();
+		if (ActiveStateClass == PausedStateClass)
+		{
+			co_return;
+		}
+	}
+
 	// Return code execution only after the paused state gets resumed
 	co_await WaitUntilStateAction(PausedStateClass, EStateAction::Resume);
 }
@@ -807,7 +822,7 @@ TCoroutine<> UFiniteStateMachine::PushState_Implementation(TSubclassOf<UMachineS
 void UFiniteStateMachine::PopState_Implementation()
 {
 	// Disallow to change out state while we're running important code
-	FFiniteStateMachineMutex(this);
+	FFiniteStateMachineInternalStateModificationCounterWrapper(this);
 
 	// Keep track of the stack
 	StatesStack.Pop();
