@@ -60,7 +60,11 @@ void UMachineState::OnEnded(TSubclassOf<UMachineState> NewState)
 	ensureMsgf(!bIsActivatingLabel, TEXT("Ending a state while a label is being activated is prohibited."));
 
 	OnRemovedFromStack(EStateAction::End);
-	OnDeactivated(EStateAction::End);
+
+	if (IsStateActive())
+	{
+		OnDeactivated(EStateAction::End);
+	}
 }
 
 void UMachineState::OnPushed()
