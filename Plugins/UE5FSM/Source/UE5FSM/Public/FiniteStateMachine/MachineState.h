@@ -437,7 +437,7 @@ public:
 
 #pragma region Utilities
 
-protected:
+public:
 	/**
 	 * Get typed owner.
 	 * @return Typed owner.
@@ -452,6 +452,7 @@ protected:
 	template<typename T>
 	T* GetOwnerChecked() const;
 
+protected:
 	/**
 	 * Get current game time in seconds.
 	 * @return	Game time in seconds.
