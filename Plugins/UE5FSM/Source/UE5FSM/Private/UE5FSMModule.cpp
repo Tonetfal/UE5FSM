@@ -10,27 +10,21 @@ const static FName DebuggerCategoryName = "UE5FSM";
 void FUE5FSMModule::StartupModule()
 {
 #if WITH_UE5FSM_DEBUGGER
-	if (IGameplayDebugger::IsAvailable())
-	{
-		const auto* CategoryInstance = &FGameplayDebuggerCategory_UE5FSM::MakeInstance;
-		const auto Category = IGameplayDebugger::FOnGetCategory::CreateStatic(CategoryInstance);
+	const auto* CategoryInstance = &FGameplayDebuggerCategory_UE5FSM::MakeInstance;
+	const auto Category = IGameplayDebugger::FOnGetCategory::CreateStatic(CategoryInstance);
 
-		auto& GameplayDebuggerModule = IGameplayDebugger::Get();
-		GameplayDebuggerModule.RegisterCategory(DebuggerCategoryName, Category,
-			EGameplayDebuggerCategoryState::EnabledInGameAndSimulate);
-		GameplayDebuggerModule.NotifyCategoriesChanged();
-	}
+	auto& GameplayDebuggerModule = IGameplayDebugger::Get();
+	GameplayDebuggerModule.RegisterCategory(DebuggerCategoryName, Category,
+		EGameplayDebuggerCategoryState::Disabled);
+	GameplayDebuggerModule.NotifyCategoriesChanged();
 #endif
 }
 
 void FUE5FSMModule::ShutdownModule()
 {
 #if WITH_UE5FSM_DEBUGGER
-	if (IGameplayDebugger::IsAvailable())
-	{
-		IGameplayDebugger& GameplayDebuggerModule = IGameplayDebugger::Get();
-		GameplayDebuggerModule.UnregisterCategory(DebuggerCategoryName);
-	}
+	IGameplayDebugger& GameplayDebuggerModule = IGameplayDebugger::Get();
+	GameplayDebuggerModule.UnregisterCategory(DebuggerCategoryName);
 #endif
 }
 
