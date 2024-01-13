@@ -367,6 +367,12 @@ TCoroutine<> UMachineState::PushState(TSubclassOf<UMachineState> InStateClass, F
 	co_await StateMachine->PushState(InStateClass, Label, bOutPrematureResult);
 }
 
+TCoroutine<> UMachineState::PushStateQueued(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label,
+	FFSM_PushRequestHandle* OutHandle)
+{
+	co_await StateMachine->PushStateQueued(InStateClass, Label, OutHandle);
+}
+
 bool UMachineState::PopState()
 {
 	return StateMachine->PopState();

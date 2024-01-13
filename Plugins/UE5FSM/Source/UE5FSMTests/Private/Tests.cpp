@@ -1,6 +1,7 @@
 #include "Editor.h"
 #include "FiniteStateMachine/FiniteStateMachine.h"
 #include "FiniteStateMachineTestObject.h"
+#include "MachineState_BlockedPushTest.h"
 #include "MachineState_ExternalPushPopTest.h"
 #include "MachineState_ExternalPushTest.h"
 #include "MachineState_LatentTest.h"
@@ -182,6 +183,34 @@ bool FPushState::Update()
 	return true;
 }
 
+DEFINE_LATENT_AUTOMATION_COMMAND_FOUR_PARAMETER(FPushStateV2,
+	FAutomationTestBase*, Test, AFiniteStateMachineTestActor**, TestActor, TSubclassOf<UMachineState>, StateClass,
+	FGameplayTag, Label);
+bool FPushStateV2::Update()
+{
+	LATENT_TEST_BEGIN();
+
+	bool PushResult;
+	StateMachine->PushState(StateClass, Label, &PushResult);
+	LATENT_TEST_TRUE("Push state", PushResult);
+
+	return true;
+}
+
+DEFINE_LATENT_AUTOMATION_COMMAND_FIVE_PARAMETER(FPushStateToQueue,
+	FAutomationTestBase*, Test, AFiniteStateMachineTestActor**, TestActor, TSubclassOf<UMachineState>, StateClass,
+	FGameplayTag, Label, bool, bWillBePending);
+bool FPushStateToQueue::Update()
+{
+	LATENT_TEST_BEGIN();
+
+	FFSM_PushRequestHandle Handle;
+	StateMachine->PushStateQueued(StateClass, Label, &Handle);
+	LATENT_TEST_TRUE("Push state", Handle.IsPending() == bWillBePending);
+
+	return true;
+}
+
 DEFINE_LATENT_AUTOMATION_COMMAND_FOUR_PARAMETER(FPushState_Fail,
 	FAutomationTestBase*, Test, AFiniteStateMachineTestActor**, TestActor, TSubclassOf<UMachineState>, StateClass,
 	FGameplayTag, Label);
@@ -207,6 +236,16 @@ bool FPopState::Update()
 	{
 		LATENT_TEST_TRUE("Is state active?", StateMachine->IsInState(ResumedStateClass));
 	}
+
+	return true;
+}
+
+DEFINE_LATENT_AUTOMATION_COMMAND_TWO_PARAMETER(FPopStateV2,
+	FAutomationTestBase*, Test, AFiniteStateMachineTestActor**, TestActor);
+bool FPopStateV2::Update()
+{
+	LATENT_TEST_BEGIN();
+	LATENT_TEST_TRUE("Pop state", StateMachine->PopState());
 
 	return true;
 }
@@ -300,18 +339,20 @@ bool FCompareTestMessages::Update()
 
 	// Print all the broadcast and expected messages to facilitate testing
 	// {
-	// 	auto LhsPrintStateActionsIt = LatentMessages.CreateConstIterator();
 	// 	auto RhsPrintStateActionsIt = ExpectedTestMessages.CreateConstIterator();
-	// 	for (int32 i = 0; LhsPrintStateActionsIt; ++LhsPrintStateActionsIt, i++)
-	// 	{
-	// 		UE_LOG(LogTemp, Warning, TEXT("%d. [%s] [%s]"),
-	// 			i, *GetNameSafe(LhsPrintStateActionsIt->Class), *LhsPrintStateActionsIt->Message);
-	// 	}
-	//
+	// 	UE_LOG(LogTemp, Warning, TEXT("What we expect: "));
 	// 	for (int32 i = 0; RhsPrintStateActionsIt; ++RhsPrintStateActionsIt, i++)
 	// 	{
 	// 		UE_LOG(LogTemp, Warning, TEXT("%d. [%s] [%s]"),
 	// 			i, *GetNameSafe(RhsPrintStateActionsIt->Class), *RhsPrintStateActionsIt->Message);
+	// 	}
+	//
+	// 	auto LhsPrintStateActionsIt = LatentMessages.CreateConstIterator();
+	// 	UE_LOG(LogTemp, Warning, TEXT("What we got: "));
+	// 	for (int32 i = 0; LhsPrintStateActionsIt; ++LhsPrintStateActionsIt, i++)
+	// 	{
+	// 		UE_LOG(LogTemp, Warning, TEXT("%d. [%s] [%s]"),
+	// 			i, *GetNameSafe(LhsPrintStateActionsIt->Class), *LhsPrintStateActionsIt->Message);
 	// 	}
 	// }
 
@@ -883,6 +924,146 @@ bool FFiniteStateMachineExternalPushPopTest2::RunTest(const FString& Parameters)
 
 	// Wait until we're notified that the test has ended
 	ADD_LATENT_AUTOMATION_COMMAND(FWaitPushPopMessage(this, "End test", 20.f, true));
+
+	// Check whether all predicted events took place in the correct order from the correct states
+	ADD_LATENT_AUTOMATION_COMMAND(FCompareTestMessages(this, ExpectedTestMessages));
+
+	// Finish test
+	ADD_LATENT_AUTOMATION_COMMAND(FEndLatentTest());
+	ADD_LATENT_AUTOMATION_COMMAND(FEndPlayMapCommand());
+
+	return true;
+}
+
+DEFINE_LATENT_AUTOMATION_COMMAND_TWO_PARAMETER(FFiniteStateMachineBlockedPushTest_LatentImpl,
+	FAutomationTestBase*, Test, AFiniteStateMachineTestActor**, TestActor);
+bool FFiniteStateMachineBlockedPushTest_LatentImpl::Update()
+{
+	LATENT_TEST_BEGIN();
+	StateMachine->RegisterState(UMachineState_BlockedPushTest1::StaticClass());
+	StateMachine->RegisterState(UMachineState_BlockedPushTest2::StaticClass());
+	StateMachine->RegisterState(UMachineState_BlockedPushTest3::StaticClass());
+	StateMachine->RegisterState(UMachineState_BlockedPushTest4::StaticClass());
+	StateMachine->RegisterState(UMachineState_BlockedPushTest5::StaticClass());
+
+	StateMachine->GotoState(UMachineState_BlockedPushTest1::StaticClass());
+
+	FFSM_PushRequestHandle Handle1;
+	StateMachine->PushStateQueued(UMachineState_BlockedPushTest2::StaticClass(), TAG_StateMachine_Label_Default, &Handle1);
+	LATENT_TEST_TRUE("Handle 1 is pending", Handle1.IsPending());
+	Handle1.BindOnResultCallback(FOnPendingPushRequestSignature::FDelegate::CreateLambda(
+		[] (EFSM_PendingPushRequestResult Result)
+		{
+			OnMessageDelegate.Broadcast( {
+				UMachineState_BlockedPushTest1::StaticClass(),
+				UEnum::GetValueAsString(Result),
+				true
+			});
+		}));
+
+	FFSM_PushRequestHandle Handle2;
+	StateMachine->PushStateQueued(UMachineState_BlockedPushTest3::StaticClass(), TAG_StateMachine_Label_Default, &Handle2);
+	LATENT_TEST_TRUE("Handle 2 is not pending", !Handle2.IsPending());
+
+	FFSM_PushRequestHandle Handle3;
+	StateMachine->PushStateQueued(UMachineState_BlockedPushTest4::StaticClass(), TAG_StateMachine_Label_Default, &Handle3);
+	LATENT_TEST_TRUE("Handle 3 is pending", Handle3.IsPending());
+	Handle3.BindOnResultCallback(FOnPendingPushRequestSignature::FDelegate::CreateLambda(
+		[] (EFSM_PendingPushRequestResult Result)
+		{
+			OnMessageDelegate.Broadcast({
+				UMachineState_BlockedPushTest4::StaticClass(),
+				UEnum::GetValueAsString(Result),
+			true
+			});
+		}));
+
+	StateMachine->PopState();
+
+	FFSM_PushRequestHandle Handle4;
+	StateMachine->PushStateQueued(UMachineState_BlockedPushTest5::StaticClass(), TAG_StateMachine_Label_Default, &Handle4);
+	LATENT_TEST_TRUE("Handle 4 is pending", Handle4.IsPending());
+	Handle4.BindOnResultCallback(FOnPendingPushRequestSignature::FDelegate::CreateLambda(
+		[] (EFSM_PendingPushRequestResult Result)
+		{
+			OnMessageDelegate.Broadcast({
+				UMachineState_BlockedPushTest5::StaticClass(),
+				UEnum::GetValueAsString(Result),
+			true
+			});
+		}));
+
+	StateMachine->PopState();
+	StateMachine->PopState();
+
+	FFSM_PushRequestHandle Handle5;
+	StateMachine->PushStateQueued(UMachineState_BlockedPushTest5::StaticClass(), TAG_StateMachine_Label_Default, &Handle5);
+	LATENT_TEST_TRUE("Handle 5 is pending", Handle5.IsPending());
+	Handle5.BindOnResultCallback(FOnPendingPushRequestSignature::FDelegate::CreateLambda(
+		[] (EFSM_PendingPushRequestResult Result)
+		{
+			OnMessageDelegate.Broadcast({
+				UMachineState_BlockedPushTest5::StaticClass(),
+				UEnum::GetValueAsString(Result),
+			true
+			});
+		}));
+
+	Handle5.Cancel();
+
+	StateMachine->PopState();
+	StateMachine->PopState();
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineBlockedPushTest, "UE5FSM.BlockedPushTest",
+	EAutomationTestFlags::ApplicationContextMask |
+	EAutomationTestFlags::HighPriority |
+	EAutomationTestFlags::ProductFilter);
+
+bool FFiniteStateMachineBlockedPushTest::RunTest(const FString& Parameters)
+{
+	static TArray<FStateMachineTestMessage> ExpectedTestMessages;
+	ExpectedTestMessages.Empty();
+
+	// Setup environment and test objects
+	ADD_LATENT_AUTOMATION_COMMAND(FStartLatentTest());
+	ADD_LATENT_AUTOMATION_COMMAND(FEditorLoadMap(FString("/Engine/Maps/Entry")));
+	ADD_LATENT_AUTOMATION_COMMAND(FStartPIECommand(true));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.f));
+	ADD_LATENT_AUTOMATION_COMMAND(FCreateTestActor(this, &TestActor));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FFiniteStateMachineBlockedPushTest_LatentImpl(this, &TestActor));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest1, "Begin", true));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest1, "Paused", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest3, "Pushed", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest1, "EFSM_PendingPushRequestResult::Success", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest3, "Paused", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest2, "Pushed", true));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest2, "Popped", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest3, "Resumed", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest4, "EFSM_PendingPushRequestResult::Success", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest3, "Paused", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest4, "Pushed", true));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest4, "Popped", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest3, "Resumed", true));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest3, "Popped", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest1, "Resumed", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest5, "EFSM_PendingPushRequestResult::Success", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest1, "Paused", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest5, "Pushed", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest5, "EFSM_PendingPushRequestResult::Canceled", true));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest5, "Popped", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest1, "Resumed", true));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest1, "Popped", true));
 
 	// Check whether all predicted events took place in the correct order from the correct states
 	ADD_LATENT_AUTOMATION_COMMAND(FCompareTestMessages(this, ExpectedTestMessages));

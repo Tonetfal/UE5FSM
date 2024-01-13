@@ -12,6 +12,7 @@
 
 class UFiniteStateMachine;
 class UMachineStateData;
+struct FFSM_PushRequestHandle;
 
 using namespace UE5Coro;
 
@@ -99,33 +100,27 @@ enum class EStateAction : uint8
 };
 
 /**
- * Finite machine's state defining some behavior of an object. <br> <br>
+ * Finite machine's state defining behavior of an object. <br> <br>
  *
- * # Functions to look at when implementing new state: Begin, Tick, End, and Label_Default.
- * - Begin: Function called when state starts.
- * - End: Function called when state terminates.
- * - Tick: Function called each tick.
- * - Label_Default: Label function that is called when state starts by default once.
- *
- * # Functions to add and change the behavior: REGISTER_LABEL, GotoState, GotoLabel, and StopLatentExecution.
- * - REGISTER_LABEL: macro to register a label. Read the macro documentation for more detailed information.
- * - GotoState: Change current state the finite state machine is in, which causes End to be called.
- * - GotoLabel: Start executing a given label.
- * - StopLatentExecution: cancel all latent functions (coroutines) activated by this label. Note that anything latent
- * must be cleaned yourself, as nothing outside the state knows about the latent execution of a state.
+ * # Functions to add and change state behavior: REGISTER_LABEL(), GOTO_STATE(), GOTO_LABEL(), and StopLatentExecution.
+ * - REGISTER_LABEL(): macro to register a label. Read the macro documentation for more detailed information.
+ * - GOTO_STATE(): macro to go to another state. Change current state the finite state machine is in.
+ * - GOTO_LABEL(): macro to go to another label. Start executing a given label.
+ * - StopLatentExecution: cancel all latent functions (coroutines) running under owning state machine.
  *
  * # Labels
- * - Labels are special functions coroutines can be used in, making them a good place to create latent gameplay code.
+ * - Labels are special functions coroutines are meant to be used in, making them a good place to create latent gameplay
+ *   code.
  * - To distinguish them from normal functions use "Label_" as a prefix.
- * - They are like mini states within a single state, but when a label finishes executing its code, nothing happens
- * automatically afterwards. Labels either have to manage themselves, so that they carry on the logic invokation, or
- * something else, like state functions, have to do it instead; it depends on the context.
+ * - They are like mini-states within a single state, but, when a label finishes executing its code, nothing happens
+ * automatically afterwards. Labels either have to manage themselves, so that they carry on the logic invocation, or
+ * something else, like state functions, has to do it instead; it depends on the context.
  *
  * # State data
- * - State data is data that a particular state contains, and that is accessible from outside using the owner state
- * machine, to make it easy to expose information other states might need to base their behavior on, or pass some
- * information to us.
- * - The data object is created once on state registration, and stays there until the end of the state life cycle.
+ * - State data is an object that a particular state has, and it's accessible from outside using the owning state
+ * machine to make it easy to expose information other states might need to base their behavior on, or pass some
+ * information to this state.
+ * - The object is created once on state registration, and destroyes at the end of the state lifecycle.
  * - To define the subclass of the data object you want to use for a particular state use UMachineState::StateDataClass.
  */
 UCLASS(Abstract, Blueprintable, ClassGroup=("Finite State Machine"))
@@ -411,6 +406,17 @@ public:
 	 */
 	TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default,
 		bool* bOutPrematureResult = nullptr);
+
+	/**
+	 * Push a specified state at a requested label on top of the stack. If the operation is not possible to execute for
+	 * any reason that might change in the future, it'll queued, and apply it as soon as it becomes possible following
+	 * the existing queue.
+	 * @param	InStateClass state to push.
+	 * @param	Label label to start the state at.
+	 * @param	OutHandle output parameter. Push request handle used to interact with the request.
+	 */
+	TCoroutine<> PushStateQueued(TSubclassOf<UMachineState> InStateClass,
+		FGameplayTag Label = TAG_StateMachine_Label_Default, FFSM_PushRequestHandle* OutHandle = nullptr);
 
 	/**
 	 * Pop the top-most state from stack.

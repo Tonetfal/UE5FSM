@@ -9,25 +9,66 @@ using namespace UE5Coro;
 
 UE5FSM_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Default);
 
+UENUM()
+enum class EFSM_PendingPushRequestResult : uint8
+{
+	Success,
+	Canceled
+};
+
+UE5FSM_API DECLARE_MULTICAST_DELEGATE_OneParam(FOnPendingPushRequestSignature, EFSM_PendingPushRequestResult Result);
+
 /**
- * Component to manage Machine States defining behavior of an object in an easy way.
+ * Finite state machine's push request handle used to listen for the push result and to cancel the request.
+ */
+struct UE5FSM_API FFSM_PushRequestHandle
+{
+public:
+	friend UFiniteStateMachine;
+
+public:
+	/**
+	 * Bind a custom callback to the OnResult event.
+	 * @param	Callback delegate to call when pending request is executed.
+	 */
+	void BindOnResultCallback(const FOnPendingPushRequestSignature::FDelegate&& Callback) const;
+
+	/**
+	 * Cancel the request if it's pending.
+	 */
+	void Cancel() const;
+
+	/**
+	 * Check whether this request is pending.
+	 * @return	If true, it's pending, false otherwise.
+	 */
+	bool IsPending() const;
+
+private:
+	inline static uint32 s_ID = 0;
+	uint32 ID = 0;
+	TWeakObjectPtr<UFiniteStateMachine> StateMachine = nullptr;
+};
+
+/**
+ * Component to manage Machine States defining behavior of a stateful object in an easy way.
  *
  * # The Finite State Machine can be only in one single normal state a time, making the management easier. To learn more
  * about states, read the UMachineState documentation.
  *
  * # There are normal and global states:
  * - Normal state: just a regular state that can be activated/deactivated, paused/resumed, pushed/popped on play time.
- * - Global state: a state that is active throught the whole lifetime of the state machine, that can act as a supervisor
- * on normal states.
+ * - Global state: a state that is active throughout the whole lifetime of the state machine, that can act as a
+ * supervisor on normal states and the object itself.
  *
  * # States management:
  * - States must be registered manually.
- *   - It's encouraged to define them in blueprints to avoid annoying hard coding.
+ *   - It's encouraged to define them in blueprints to avoid hard coding.
  *   - If you want to add them in C++ though, use the RegisterState() function before the initialization terminates.
  *   You should do it in the constructor of the owning object, as it allows the reflection system to see the states your
  *   state machine contains.
- * - Initial states (both global and normal) should be assigned manually as well
- *   - It's encouraged to define them in blueprints to avoid annoying hard coding.
+ * - Initial states (both global and normal) should be assigned manually as well.
+ *   - It's encouraged to define them in blueprints to avoid hard coding.
  *   - If you want to assign them in C++ though, use the SetInitialState() and SetGlobalState(). Note that global state
  *   can be set during initialization only, while normal states can be switched at any time after initialization.
  * - To switch behaviors use GotoState(), PushState(), PopState(), PauseState(), ResumeState(), and GotoLabel().
@@ -44,6 +85,39 @@ private:
 	friend struct FFiniteStateMachineInternalStateModificationCounterWrapper;
 
 public:
+	enum class EPushRequestResult : uint8
+	{
+		Success,
+		Canceled
+	};
+
+private:
+	DECLARE_MULTICAST_DELEGATE_TwoParams(
+		FOnPushRequestResultSignature,
+		int32 RequestID,
+		EPushRequestResult Result);
+
+private:
+	struct FPendingPushRequest
+	{
+	public:
+		FPendingPushRequest() = default;
+		explicit FPendingPushRequest(uint32 InID)
+			: ID(InID) { }
+
+		bool operator==(const FPendingPushRequest& Rhs) const
+		{
+			return ID == Rhs.ID;
+		}
+
+	public:
+		uint32 ID = 0;
+		TSubclassOf<UMachineState> StateClass = nullptr;
+		FGameplayTag Label = FGameplayTag::EmptyTag;
+	};
+
+public:
+
 #ifdef WITH_EDITOR
 	/** Structure to hold some debug information. */
 	struct FDebugStateAction
@@ -121,6 +195,17 @@ public:
 		bool* bOutPrematureResult = nullptr);
 
 	/**
+	 * Push a specified state at a requested label on top of the stack. If the operation is not possible to execute for
+	 * any reason that might change in the future, it'll queued, and apply it as soon as it becomes possible following
+	 * the existing queue.
+	 * @param	InStateClass state to push.
+	 * @param	Label label to start the state at.
+	 * @param	OutHandle output parameter. Push request handle used to interact with the request.
+	 */
+	TCoroutine<> PushStateQueued(TSubclassOf<UMachineState> InStateClass,
+		FGameplayTag Label = TAG_StateMachine_Label_Default, FFSM_PushRequestHandle* OutHandle = nullptr);
+
+	/**
 	 * Pop the top-most state from stack.
 	 * @return	If true, a state has been popped, false otherwise.
 	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
@@ -150,6 +235,28 @@ public:
 	 * @return	Amount of latent executions stopped.
 	 */
 	int32 StopEveryRunningLabel();
+
+	/**
+	 * Remove the specified request from the pending push list.
+	 * @param	Handle request to cancel.
+	 * @return	If true, the request has been successfully canceled, false otherwise.
+	 */
+	bool CancelPushRequest(FFSM_PushRequestHandle Handle);
+
+	/**
+	 * Check whether the push request is pending.
+	 * @param	Handle request to check.
+	 * @return	If true, the request is pending, false otherwise.
+	 */
+	bool IsPushRequestPending(FFSM_PushRequestHandle Handle) const;
+
+	/**
+	 * Get multicast delegate that is fired when the specified push request handle is finished. If the handle is not
+	 * associated with an active pending request, the returned delegate will never fire.
+	 * @param	Handle request the delegate will be returned for.
+	 * @return	OnPendingPushRequesteResult delegate.
+	 */
+	FOnPendingPushRequestSignature& GetOnPendingPushRequestResultDelegate(FFSM_PushRequestHandle Handle);
 
 	/**
 	 * Check whether a given state is active.
@@ -347,11 +454,35 @@ private:
 	TCoroutine<> WaitUntilStateAction(TSubclassOf<UMachineState> InStateClass, EStateAction StateAction) const;
 
 	/**
+	 * Push a request in the queue
+	 * @param	InStateClass state to push.
+	 * @param	Label label to start the state at.
+	 * @param	OutHandle output parameter. Push request handle used to interact with the request.
+	 */
+	TCoroutine<> AddAndWaitPendingPushRequest(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label,
+		FFSM_PushRequestHandle* OutHandle);
+
+	/**
+	 * Try to push the first element in the queue.
+	 */
+	void UpdatePushQueue();
+
+	/**
+	 * Try to execute a pending push request.
+	 * @param	Request request to try to execute.
+	 */
+	void PushState_Pending(FPendingPushRequest Request);
+
+	/**
 	 * Remove all latent execution cancel delegates that are no longer bound because the latent execution the delegate
 	 * was associated with has terminated before the user has used it.
 	 * @return	Amount of removed invalid latent execution cancellers.
 	 */
 	void ClearStatesInvalidLatentExecutionCancellers();
+
+private:
+	/** Called when a pending push request is completed with any result. */
+	FOnPushRequestResultSignature OnPushRequestResultDelegate;
 
 public:
 	/** All the machine states that will be automatically registered on initialization. */
@@ -407,6 +538,12 @@ private:
 	/** Container of all states that performed an action. It exists for debug purposes only. */
 	std::queue<FDebugStateAction> LastStateActionsStack;
 #endif
+
+	/** Queue for the pending push requests that failed to happen. Only the very first entry is tried to be pushed. */
+	TArray<FPendingPushRequest> PendingPushRequests;
+
+	/** Delegates to pending push request ID. Users can listen for these using ID to register their callbacks. */
+	TMap<uint32, FOnPendingPushRequestSignature> OnPendingPushRequestResultDelegates;
 
 	/** Timer associated with clearing state execution cancellers process. */
 	FTimerHandle CancellersCleaningTimerHandle;
