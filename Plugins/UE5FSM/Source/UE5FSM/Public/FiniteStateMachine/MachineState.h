@@ -393,12 +393,12 @@ private:
 
 public:
 	/**
-	 * Go to a requested state at a requested label.
+     * Activate a state at a specified label. If there's any active state, it'll deactivated.
 	 * @param	InStateClass state to go to.
 	 * @param	Label label to start the state with.
-	 * @return	If true, state has been successfully switched, false otherwise.
 	 * @param	bForceEvents in case of switching to the same state we're in: If true, fire end & begin events,
 	 * otherwise do not.
+	 * @return	If true, state has been successfully switched, false otherwise.
 	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
 	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
 	 * GotoState).
@@ -407,24 +407,24 @@ public:
 		bool bForceEvents = true);
 
 	/**
-	 * Go to a requested label.
+	 * Go to a label using the active state.
 	 * @param	Label label to go to.
 	 * @return	If true, label has been activated, false otherwise.
 	 */
 	bool GotoLabel(FGameplayTag Label);
 
 	/**
-	 * Push a specified state at a requested label on top of the stack.
+	 * Push a state at a specified label on top of the stack.
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state with.
 	 * @param	bOutPrematureResult output parameter. Boolean to use when you want to use the function result before it
-	 * returns code execution.
+	 * returns code execution order.
 	 */
 	TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default,
 		bool* bOutPrematureResult = nullptr);
 
 	/**
-	 * Push a specified state at a requested label on top of the stack. If the operation is not possible to execute for
+	 * Push a state at a specified label on top of the stack. If the operation is not possible to execute for
 	 * any reason that might change in the future, it'll queued, and apply it as soon as it becomes possible following
 	 * the existing queue.
 	 * @param	OutHandle output parameter. Push request handle used to interact with the request.

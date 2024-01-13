@@ -163,7 +163,7 @@ public:
 	void SetGlobalState(TSubclassOf<UMachineState> InStateClass);
 
 	/**
-	 * Go to a requested state at a requested label.
+     * Activate a state at a specified label. If there's any active state, it'll deactivated.
 	 * @param	InStateClass state to go to.
 	 * @param	Label label to start the state at.
 	 * @param	bForceEvents in case of switching to the same state we're in: If true, fire end & begin events,
@@ -177,7 +177,7 @@ public:
 		bool bForceEvents = true);
 
 	/**
-	 * Go to a requested label using the active state.
+	 * Go to a label using the active state.
 	 * @param	Label label to go to.
 	 * @return	If true, label has been activated, false otherwise.
 	 * @note	The requested label will be activated the next tick, if not changed with a subsequent GotoLabel call.
@@ -185,7 +185,7 @@ public:
 	bool GotoLabel(FGameplayTag Label);
 
 	/**
-	 * Push a specified state at a requested label on top of the stack.
+	 * Push a state at a specified label on top of the stack.
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state at.
 	 * @param	bOutPrematureResult output parameter. Boolean to use when you want to use the function result before it
@@ -195,7 +195,7 @@ public:
 		bool* bOutPrematureResult = nullptr);
 
 	/**
-	 * Push a specified state at a requested label on top of the stack. If the operation is not possible to execute for
+	 * Push a state at a specified label on top of the stack. If the operation is not possible to execute for
 	 * any reason that might change in the future, it'll queued, and apply it as soon as it becomes possible following
 	 * the existing queue order.
 	 * @param	OutHandle output parameter. Push request handle used to interact with the request.
