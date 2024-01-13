@@ -96,7 +96,7 @@ void AMyAIController::OnPossess(APawn* InPawn)
 TCoroutine<> USeekingState::Label_Default()
 {
 	// Walk to a target
-	co_await RUN_LATENT_EXECUTION(AI::AIMoveTo, GetOwner<AAIController>(), GetTarget());
+	RUN_LATENT_EXECUTION(AI::AIMoveTo, GetOwner<AAIController>(), GetTarget());
 	
 	// Upon reaching the target push the attacking state to harm it
 	PUSH_STATE(UAttackingState);
@@ -120,7 +120,7 @@ TCoroutine<> UAttackingState::Label_Default()
 	while (AnimInstance->Montage_IsPlaying(GetAttackAnimation()))
 	{
 		// Wait until the animation doesn't end
-		co_await RUN_LATENT_EXECUTION(Latent::NextTick);
+		RUN_LATENT_EXECUTION(Latent::NextTick);
 	}
 
 	// Finish attacking; this will return us to the last state, in this case to the seeking state
