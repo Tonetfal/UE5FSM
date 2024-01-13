@@ -72,7 +72,8 @@ UE5FSM_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Default);
 
 #define TO_STR(x) #x
 #define RUN_LATENT_EXECUTION(FUNCTION, ...) \
-	RunLatentExecutionExt(LIFT(FUNCTION), *FString::Printf(TEXT("Caller function [%s] Line [%d] Latent function [%s]"), \
+	co_await RunLatentExecutionExt(LIFT(FUNCTION), *FString::Printf( \
+		TEXT("Caller function [%s] Line [%d] Latent function [%s]"), \
 		*FString(__FUNCTION__), __LINE__, *FString(TO_STR(FUNCTION))), ## __VA_ARGS__)
 
 /**

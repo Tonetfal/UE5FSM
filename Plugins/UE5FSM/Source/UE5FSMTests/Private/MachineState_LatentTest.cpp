@@ -9,7 +9,7 @@ TCoroutine<> UMachineState_GotoStateTest1::Label_Default()
 	BROADCAST_TEST_MESSAGE("Goto test 2 fail", true);
 
 	// Wait one tick to due to the reason described above
-	co_await RUN_LATENT_EXECUTION(Latent::NextTick);
+	RUN_LATENT_EXECUTION(Latent::NextTick);
 
 	BROADCAST_TEST_MESSAGE("Pre goto test 2", true);
 	GOTO_STATE(UMachineState_GotoStateTest2);
@@ -21,7 +21,7 @@ TCoroutine<> UMachineState_GotoStateTest1::Label_Default()
 
 TCoroutine<> UMachineState_GotoStateTest2::Label_Default()
 {
-	co_await RUN_LATENT_EXECUTION(Latent::Seconds, 1.0);
+	RUN_LATENT_EXECUTION(Latent::Seconds, 1.0);
 	BROADCAST_TEST_MESSAGE("End test", true);
 	co_return;
 }
@@ -32,7 +32,7 @@ TCoroutine<> UMachineState_LatentExecutionTest1::Label_Default()
 	GetTimerManager().SetTimer(TimerHandle, this, &ThisClass::PushLatentExecutionTest2, 1.f, false);
 
 	BROADCAST_TEST_MESSAGE("Pre sleep", true);
-	co_await RUN_LATENT_EXECUTION(Latent::Seconds, 2.0);
+	RUN_LATENT_EXECUTION(Latent::Seconds, 2.0);
 	BROADCAST_TEST_MESSAGE("Post sleep", true);
 	BROADCAST_TEST_MESSAGE("End test", true);
 }
@@ -47,7 +47,7 @@ void UMachineState_LatentExecutionTest1::PushLatentExecutionTest2()
 TCoroutine<> UMachineState_LatentExecutionTest2::Label_Default()
 {
 	BROADCAST_TEST_MESSAGE("Pre sleep", true);
-	co_await RUN_LATENT_EXECUTION(Latent::Seconds, 3.5);
+	RUN_LATENT_EXECUTION(Latent::Seconds, 3.5);
 	BROADCAST_TEST_MESSAGE("Post sleep", true);
 	BROADCAST_TEST_MESSAGE("Pre pop", true);
 	POP_STATE();

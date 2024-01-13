@@ -43,6 +43,6 @@ TCoroutine<> UMachineState_ExternalPushTest::Label_Default()
 	while (true)
 	{
 		BROADCAST_TEST_MESSAGE("Hello", true);
-		co_await RUN_LATENT_EXECUTION(Latent::Seconds, 0.4f);
+		RUN_LATENT_EXECUTION(Latent::Seconds, 0.4f);
 	}
 }

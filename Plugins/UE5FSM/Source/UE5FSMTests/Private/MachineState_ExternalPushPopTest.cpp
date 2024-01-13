@@ -2,6 +2,6 @@
 
 TCoroutine<> UMachineState_ExternalPushPopTest::Label_Default()
 {
-	co_await RUN_LATENT_EXECUTION(Latent::Seconds, 0.5);
+	RUN_LATENT_EXECUTION(Latent::Seconds, 0.5);
 	BROADCAST_TEST_MESSAGE("Post default label", true);
 }

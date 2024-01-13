@@ -32,7 +32,7 @@ TCoroutine<> UMachineState_PushPopTest::Label_Default()
 		BROADCAST_TEST_MESSAGE("Before test label activation", true);
 
 		// Should be cancelled by the test label
-		co_await RUN_LATENT_EXECUTION(Latent::Seconds, 120.0);
+		RUN_LATENT_EXECUTION(Latent::Seconds, 120.0);
 		BROADCAST_TEST_MESSAGE("Latent execution has been cancelled", true);
 	}
 }
@@ -46,10 +46,10 @@ TCoroutine<> UMachineState_PushPopTest::Label_Test()
 
 	if (IsValid(LatentPushState))
 	{
-		co_await RUN_LATENT_EXECUTION(Latent::Seconds, 1.0);
-		co_await PUSH_STATE_CLASS(LatentPushState);
+		RUN_LATENT_EXECUTION(Latent::Seconds, 1.0);
+		PUSH_STATE_CLASS(LatentPushState);
 	}
 
-	co_await RUN_LATENT_EXECUTION(Latent::Seconds, 1.0);
+	RUN_LATENT_EXECUTION(Latent::Seconds, 1.0);
 	POP_STATE();
 }
