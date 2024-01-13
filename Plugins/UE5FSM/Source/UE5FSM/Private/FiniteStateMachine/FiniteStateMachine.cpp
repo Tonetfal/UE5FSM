@@ -440,8 +440,8 @@ TCoroutine<> UFiniteStateMachine::PushState(TSubclassOf<UMachineState> InStateCl
 	co_await PushState_Implementation(InStateClass, Label);
 }
 
-TCoroutine<> UFiniteStateMachine::PushStateQueued(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label,
-	FFSM_PushRequestHandle* OutHandle)
+TCoroutine<> UFiniteStateMachine::PushStateQueued(FFSM_PushRequestHandle& OutHandle,
+	TSubclassOf<UMachineState> InStateClass, FGameplayTag Label)
 {
 	if (!IsValid(InStateClass))
 	{
@@ -460,7 +460,7 @@ TCoroutine<> UFiniteStateMachine::PushStateQueued(TSubclassOf<UMachineState> InS
 		FSM_LOG(Log, "Impossible to immediately push state [%s] before initialization. "
 			"The operation will be queued.", *GetNameSafe(InStateClass));
 
-		co_await AddAndWaitPendingPushRequest(InStateClass, Label, OutHandle);
+		co_await AddAndWaitPendingPushRequest(OutHandle, InStateClass, Label);
 		co_return;
 	}
 
@@ -469,7 +469,7 @@ TCoroutine<> UFiniteStateMachine::PushStateQueued(TSubclassOf<UMachineState> InS
 		FSM_LOG(Log, "Impossible to immediately push a state [%s] while modifying internal state. "
 			"The operation will be queued.", *GetNameSafe(InStateClass));
 
-		co_await AddAndWaitPendingPushRequest(InStateClass, Label, OutHandle);
+		co_await AddAndWaitPendingPushRequest(OutHandle, InStateClass, Label);
 		co_return;
 	}
 
@@ -482,7 +482,7 @@ TCoroutine<> UFiniteStateMachine::PushStateQueued(TSubclassOf<UMachineState> InS
 		FSM_LOG(Log, "Impossible to immediately go to state [%s] as active state [%s] has disallowed this "
 			"particular transition. The operation will be queued.", *GetNameSafe(InStateClass), *ActiveState->GetName());
 
-		co_await AddAndWaitPendingPushRequest(InStateClass, Label, OutHandle);
+		co_await AddAndWaitPendingPushRequest(OutHandle, InStateClass, Label);
 		co_return;
 	}
 
@@ -494,7 +494,7 @@ TCoroutine<> UFiniteStateMachine::PushStateQueued(TSubclassOf<UMachineState> InS
 		FSM_LOG(Log, "Impossible to immediately push state [%s] as it's already present in the stack. "
 			"The operation will be queued.", *GetNameSafe(InStateClass));
 
-		co_await AddAndWaitPendingPushRequest(InStateClass, Label, OutHandle);
+		co_await AddAndWaitPendingPushRequest(OutHandle, InStateClass, Label);
 		co_return;
 	}
 
@@ -503,7 +503,7 @@ TCoroutine<> UFiniteStateMachine::PushStateQueued(TSubclassOf<UMachineState> InS
 		FSM_LOG(Log, "State [%s] is not registered in state machine. The operation will be queued.",
 			*InStateClass->GetName());
 
-		co_await AddAndWaitPendingPushRequest(InStateClass, Label, OutHandle);
+		co_await AddAndWaitPendingPushRequest(OutHandle, InStateClass, Label);
 		co_return;
 	}
 
@@ -534,18 +534,15 @@ bool UFiniteStateMachine::PopState()
 	return true;
 }
 
-TCoroutine<> UFiniteStateMachine::AddAndWaitPendingPushRequest(TSubclassOf<UMachineState> InStateClass,
-	FGameplayTag Label, FFSM_PushRequestHandle* OutHandle)
+TCoroutine<> UFiniteStateMachine::AddAndWaitPendingPushRequest(FFSM_PushRequestHandle& OutHandle,
+	TSubclassOf<UMachineState> InStateClass, FGameplayTag Label)
 {
 	FFSM_PushRequestHandle Handle;
 	Handle.StateMachine = this;
 	Handle.ID = FFSM_PushRequestHandle::s_ID;
 	Handle.s_ID++;
 
-	if (OutHandle)
-	{
-		*OutHandle = Handle;
-	}
+	OutHandle = Handle;
 
 	// Push a request to the queue
 	FPendingPushRequest& Request = PendingPushRequests.AddDefaulted_GetRef();

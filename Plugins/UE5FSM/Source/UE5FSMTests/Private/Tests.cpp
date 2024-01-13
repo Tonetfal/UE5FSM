@@ -205,7 +205,7 @@ bool FPushStateToQueue::Update()
 	LATENT_TEST_BEGIN();
 
 	FFSM_PushRequestHandle Handle;
-	StateMachine->PushStateQueued(StateClass, Label, &Handle);
+	StateMachine->PushStateQueued(Handle, StateClass, Label);
 	LATENT_TEST_TRUE("Push state", Handle.IsPending() == bWillBePending);
 
 	return true;
@@ -949,7 +949,7 @@ bool FFiniteStateMachineBlockedPushTest_LatentImpl::Update()
 	StateMachine->GotoState(UMachineState_BlockedPushTest1::StaticClass());
 
 	FFSM_PushRequestHandle Handle1;
-	StateMachine->PushStateQueued(UMachineState_BlockedPushTest2::StaticClass(), TAG_StateMachine_Label_Default, &Handle1);
+	StateMachine->PushStateQueued(Handle1, UMachineState_BlockedPushTest2::StaticClass());
 	LATENT_TEST_TRUE("Handle 1 is pending", Handle1.IsPending());
 	Handle1.BindOnResultCallback(FOnPendingPushRequestSignature::FDelegate::CreateLambda(
 		[] (EFSM_PendingPushRequestResult Result)
@@ -962,11 +962,11 @@ bool FFiniteStateMachineBlockedPushTest_LatentImpl::Update()
 		}));
 
 	FFSM_PushRequestHandle Handle2;
-	StateMachine->PushStateQueued(UMachineState_BlockedPushTest3::StaticClass(), TAG_StateMachine_Label_Default, &Handle2);
+	StateMachine->PushStateQueued(Handle2, UMachineState_BlockedPushTest3::StaticClass());
 	LATENT_TEST_TRUE("Handle 2 is not pending", !Handle2.IsPending());
 
 	FFSM_PushRequestHandle Handle3;
-	StateMachine->PushStateQueued(UMachineState_BlockedPushTest4::StaticClass(), TAG_StateMachine_Label_Default, &Handle3);
+	StateMachine->PushStateQueued(Handle3, UMachineState_BlockedPushTest4::StaticClass());
 	LATENT_TEST_TRUE("Handle 3 is pending", Handle3.IsPending());
 	Handle3.BindOnResultCallback(FOnPendingPushRequestSignature::FDelegate::CreateLambda(
 		[] (EFSM_PendingPushRequestResult Result)
@@ -981,7 +981,7 @@ bool FFiniteStateMachineBlockedPushTest_LatentImpl::Update()
 	StateMachine->PopState();
 
 	FFSM_PushRequestHandle Handle4;
-	StateMachine->PushStateQueued(UMachineState_BlockedPushTest5::StaticClass(), TAG_StateMachine_Label_Default, &Handle4);
+	StateMachine->PushStateQueued(Handle4, UMachineState_BlockedPushTest5::StaticClass());
 	LATENT_TEST_TRUE("Handle 4 is pending", Handle4.IsPending());
 	Handle4.BindOnResultCallback(FOnPendingPushRequestSignature::FDelegate::CreateLambda(
 		[] (EFSM_PendingPushRequestResult Result)
@@ -997,7 +997,7 @@ bool FFiniteStateMachineBlockedPushTest_LatentImpl::Update()
 	StateMachine->PopState();
 
 	FFSM_PushRequestHandle Handle5;
-	StateMachine->PushStateQueued(UMachineState_BlockedPushTest5::StaticClass(), TAG_StateMachine_Label_Default, &Handle5);
+	StateMachine->PushStateQueued(Handle5, UMachineState_BlockedPushTest5::StaticClass());
 	LATENT_TEST_TRUE("Handle 5 is pending", Handle5.IsPending());
 	Handle5.BindOnResultCallback(FOnPendingPushRequestSignature::FDelegate::CreateLambda(
 		[] (EFSM_PendingPushRequestResult Result)

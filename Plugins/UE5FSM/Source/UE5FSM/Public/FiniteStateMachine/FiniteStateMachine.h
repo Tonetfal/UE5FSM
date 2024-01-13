@@ -197,13 +197,13 @@ public:
 	/**
 	 * Push a specified state at a requested label on top of the stack. If the operation is not possible to execute for
 	 * any reason that might change in the future, it'll queued, and apply it as soon as it becomes possible following
-	 * the existing queue.
+	 * the existing queue order.
+	 * @param	OutHandle output parameter. Push request handle used to interact with the request.
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state at.
-	 * @param	OutHandle output parameter. Push request handle used to interact with the request.
 	 */
-	TCoroutine<> PushStateQueued(TSubclassOf<UMachineState> InStateClass,
-		FGameplayTag Label = TAG_StateMachine_Label_Default, FFSM_PushRequestHandle* OutHandle = nullptr);
+	TCoroutine<> PushStateQueued(FFSM_PushRequestHandle& OutHandle, TSubclassOf<UMachineState> InStateClass,
+		FGameplayTag Label = TAG_StateMachine_Label_Default);
 
 	/**
 	 * Pop the top-most state from stack.
@@ -455,12 +455,12 @@ private:
 
 	/**
 	 * Push a request in the queue
+	 * @param	OutHandle output parameter. Push request handle used to interact with the request.
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state at.
-	 * @param	OutHandle output parameter. Push request handle used to interact with the request.
 	 */
-	TCoroutine<> AddAndWaitPendingPushRequest(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label,
-		FFSM_PushRequestHandle* OutHandle);
+	TCoroutine<> AddAndWaitPendingPushRequest(FFSM_PushRequestHandle& OutHandle,
+		TSubclassOf<UMachineState> InStateClass, FGameplayTag Label);
 
 	/**
 	 * Try to push the first element in the queue.

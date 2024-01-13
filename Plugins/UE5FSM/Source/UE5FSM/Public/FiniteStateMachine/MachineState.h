@@ -59,29 +59,29 @@ UE5FSM_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Default);
 #define PUSH_STATE(STATE_NAME) \
 	PUSH_STATE_LABEL(STATE_NAME, Default)
 
-#define PUSH_STATE_LABEL(STATE_NAME, LABEL_NAME) \
-	PUSH_STATE_IMPLEMENTATION(STATE_NAME ## ::StaticClass(), TAG_StateMachine_Label_ ## LABEL_NAME)
-
 #define PUSH_STATE_CLASS(STATE_CLASS) \
 	PUSH_STATE_CLASS_LABEL(STATE_CLASS, Default)
+
+#define PUSH_STATE_LABEL(STATE_NAME, LABEL_NAME) \
+	PUSH_STATE_IMPLEMENTATION(STATE_NAME ## ::StaticClass(), TAG_StateMachine_Label_ ## LABEL_NAME)
 
 #define PUSH_STATE_CLASS_LABEL(STATE_CLASS, LABEL_NAME) \
 	PUSH_STATE_IMPLEMENTATION(STATE_CLASS, TAG_StateMachine_Label_ ## LABEL_NAME)
 
-#define PUSH_STATE_QUEUED_IMPLEMENTATION(STATE_CLASS, LABEL) \
-	RUN_LATENT_EXECUTION(PushStateQueued, STATE_CLASS, LABEL)
+#define PUSH_STATE_QUEUED_IMPLEMENTATION(HANDLE, STATE_CLASS, LABEL) \
+	RUN_LATENT_EXECUTION(PushStateQueued, HANDLE, STATE_CLASS, LABEL)
 
-#define PUSH_STATE_QUEUED(STATE_NAME) \
-	PUSH_STATE_QUEUED_LABEL(STATE_NAME, Default)
+#define PUSH_STATE_QUEUED(HANDLE, STATE_NAME) \
+	PUSH_STATE_QUEUED_LABEL(HANDLE, STATE_NAME, Default)
 
-#define PUSH_STATE_QUEUED_LABEL(STATE_NAME, LABEL_NAME) \
-	PUSH_STATE_QUEUED_IMPLEMENTATION(STATE_NAME ## ::StaticClass(), TAG_StateMachine_Label_ ## LABEL_NAME)
+#define PUSH_STATE_QUEUED_CLASS(HANDLE, STATE_CLASS) \
+	PUSH_STATE_QUEUED_CLASS_LABEL(HANDLE, STATE_CLASS, Default)
 
-#define PUSH_STATE_QUEUED_CLASS(STATE_CLASS) \
-	PUSH_STATE_QUEUED_CLASS_LABEL(STATE_CLASS, Default)
+#define PUSH_STATE_QUEUED_LABEL(HANDLE, STATE_NAME, LABEL_NAME) \
+	PUSH_STATE_QUEUED_IMPLEMENTATION(HANDLE, STATE_NAME ## ::StaticClass(), TAG_StateMachine_Label_ ## LABEL_NAME)
 
-#define PUSH_STATE_QUEUED_CLASS_LABEL(STATE_CLASS, LABEL_NAME) \
-	PUSH_STATE_QUEUED_IMPLEMENTATION(STATE_CLASS, TAG_StateMachine_Label_ ## LABEL_NAME)
+#define PUSH_STATE_QUEUED_CLASS_LABEL(HANDLE, STATE_CLASS, LABEL_NAME) \
+	PUSH_STATE_QUEUED_IMPLEMENTATION(HANDLE, STATE_CLASS, TAG_StateMachine_Label_ ## LABEL_NAME)
 
 #define POP_STATE() if (PopState()) co_return
 
@@ -427,12 +427,12 @@ public:
 	 * Push a specified state at a requested label on top of the stack. If the operation is not possible to execute for
 	 * any reason that might change in the future, it'll queued, and apply it as soon as it becomes possible following
 	 * the existing queue.
+	 * @param	OutHandle output parameter. Push request handle used to interact with the request.
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state at.
-	 * @param	OutHandle output parameter. Push request handle used to interact with the request.
 	 */
-	TCoroutine<> PushStateQueued(TSubclassOf<UMachineState> InStateClass,
-		FGameplayTag Label = TAG_StateMachine_Label_Default, FFSM_PushRequestHandle* OutHandle = nullptr);
+	TCoroutine<> PushStateQueued(FFSM_PushRequestHandle& OutHandle,
+		TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default);
 
 	/**
 	 * Pop the top-most state from stack.
