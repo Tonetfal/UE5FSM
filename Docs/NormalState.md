@@ -59,8 +59,14 @@ To interact with the stack there are plenty of methods, they're present in both 
 ```c++
 bool GotoState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, bool bForceEvents = true);
 TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, bool* bOutPrematureResult = nullptr);
+TCoroutine<> PushStateQueued(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, FFSM_PushRequestHandle* OutHandle = nullptr);
 bool PopState();
 ```
+
+The methods are relatively simple: they ask the FSM to do something immediately. If the request can be done at that 
+specific moment, it'll be executed. However, `PushStateQueued()` is different: push of a valid state might be 
+impossible at some point, but even if it is, the request will not fail, instead, it'll wait for an opportunity to do 
+that as soon as possible. The client is left with a `FFSM_PushRequestHandle` to manage the pending request if any.
 
 To get more information about these relatively to the labels, read the [labels](Labels.md) documentation, there are 
 several sections covering them.

@@ -43,6 +43,7 @@ If you have the finite state machine or machine state object reference you can u
 ```c++
 bool GotoState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, bool bForceEvents = true);
 TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, bool* bOutPrematureResult = nullptr);
+TCoroutine<> PushStateQueued(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, FFSM_PushRequestHandle* OutHandle = nullptr);
 ```
 
 In both the cases you can use the second argument to alter the starting label from the default one to any other.
@@ -55,6 +56,8 @@ GOTO_STATE_LABEL(STATE_NAME, LABEL_NAME, ...)
 GOTO_STATE_CLASS_LABEL(STATE_CLASS, LABEL_NAME, ...)
 PUSH_STATE_LABEL(STATE_NAME, LABEL_NAME)
 PUSH_STATE_CLASS_LABEL(STATE_CLASS, LABEL_NAME)
+PUSH_STATE_QUEUED_LABEL(STATE_NAME, LABEL_NAME)
+PUSH_STATE_QUEUED_CLASS_LABEL(STATE_CLASS, LABEL_NAME)
 ```
 
 Unlike the methods these are a bit trickier to use:
@@ -66,10 +69,16 @@ TCoroutine<> Label_Default()
 	GOTO_STATE_LABEL(UMyMachineState_Demo, MyCoolLabel);
 	GOTO_STATE_CLASS_LABEL(UMyMachineState_Demo::StaticClass(), MyCoolLabel);
 	
-	// Note that the code is going to wait upon successfully pushing a new state to the stuck up until we become the 
-	// top-most state once again
-	co_await PUSH_STATE_LABEL(UMyMachineState_Demo, MyCoolLabel);
-	co_await PUSH_STATE_CLASS_LABEL(UMyMachineState_Demo::StaticClass(), MyCoolLabel);
+	// The code is going to wait upon SUCCESSFULLY pushing a new state to the stack up until this state becomes the 
+	// top-most one once again
+	PUSH_STATE_LABEL(UMyMachineState_Demo, MyCoolLabel);
+	PUSH_STATE_CLASS_LABEL(UMyMachineState_Demo::StaticClass(), MyCoolLabel);
+	
+	// The code is going to wait the push result, as long as the arguments were valid, and the pushed state's 
+	// subsequent deactivation. It means that the state might've not been pushed immediately, but it might be at some 
+	// point, for instance, after the active state is changed to something that doesn't prevent the request from executing
+	PUSH_STATE_QUEUED_LABEL(UMyMachineState_Demo, MyCoolLabel);
+	PUSH_STATE_QUEUED_CLASS_LABEL(UMyMachineState_Demo::StaticClass(), MyCoolLabel);
 }
 ```
 
@@ -79,8 +88,8 @@ default. Creating your own non-label coroutines will result into undefined behav
 
 ### Internal switch
 
-Since the states have different events upon certain actions (Begin, End, Push, Pop etc) we can switch the label
-right upon that, and it'll make us to ignore the label the client might've specified. At the moment of OnActivated 
+Since the states have different events upon certain actions (Begin, End, Push, Pop etc) it's possible to switch the 
+label right upon that, and it'll make us to ignore the label the client might've specified. At the moment of OnActivated 
 (the same applies to Begin, Push, and Resume) the label the client has specified will be already assigned to us in 
 UMachineState::ActiveLabel, and we're going to override it with our own label. It's not the best choice, but sometimes 
 it might be handy.
@@ -134,7 +143,8 @@ up with a single macro which users are **heavily encouraged** to use. Not using 
 RUN_LATENT_EXECUTION(FUNCTION, ...)
 ```
 
-The function **must** be co_awaitable. This is how you can make a simple label:
+The function **must** be [co_awaitable](https://github.com/landelare/ue5coro/blob/master/Docs/Awaiters.md). 
+This is how you can make a simple label:
 
 ```c++
 TCoroutine<> UPatrolState::Label_Default()
@@ -144,10 +154,10 @@ TCoroutine<> UPatrolState::Label_Default()
 		AActor* MovePoint = GetMovePoint();
 
 		// Move to a point
-		co_await RUN_LATENT_EXECUTION(AI::AIMoveTo, MyController, MovePoint, -1.f, EAIOptionFlag::Disable);
+		RUN_LATENT_EXECUTION(AI::AIMoveTo, MyController, MovePoint, -1.f, EAIOptionFlag::Disable);
 
 		// Stay idle for 5-10 seconds
-		co_await RUN_LATENT_EXECUTION(Latent::Seconds, FMath::FRandRange(5.f, 10.f));
+		RUN_LATENT_EXECUTION(Latent::Seconds, FMath::FRandRange(5.f, 10.f));
 	}
 }
 ```
