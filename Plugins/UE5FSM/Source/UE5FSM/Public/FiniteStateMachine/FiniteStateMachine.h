@@ -222,9 +222,9 @@ public:
 
 	/**
 	 * Clear all states from the stack leaving it empty.
-	 * @return	Amount of states popped.
+	 * @return	Amount of ended states.
 	 */
-	int32 ClearStates();
+	int32 ClearStack();
 
 	/**
 	 * Stop any latent execution of EVERY state known to this state machine. Doesn't interrupt label execution.
@@ -387,7 +387,7 @@ public:
 	/**
 	 * Shorthand for GetWorld()->GetTimerManager().
 	 */
-	FTimerManager& GetWorldTimerManager() const;
+	FTimerManager& GetTimerManager() const;
 
 #ifdef WITH_EDITOR
 	/**
@@ -396,6 +396,7 @@ public:
 	TArray<FDebugStateAction> GetLastStateActionsStack() const;
 #endif
 
+protected:
 	/**
 	 * Called when our state performs an action.
 	 * @param	State state has that performed an action.

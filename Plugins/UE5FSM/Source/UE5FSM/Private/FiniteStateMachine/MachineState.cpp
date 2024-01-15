@@ -432,6 +432,11 @@ bool UMachineState::PopState()
 	return StateMachine->PopState();
 }
 
+int32 UMachineState::ClearStack()
+{
+	return StateMachine->ClearStack();
+}
+
 bool UMachineState::ContainsLabel(FGameplayTag Label) const
 {
 	const FLabelSignature* LabelFunction = RegisteredLabels.Find(Label);

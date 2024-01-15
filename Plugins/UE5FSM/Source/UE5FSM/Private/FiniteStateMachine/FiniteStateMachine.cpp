@@ -63,12 +63,12 @@ void UFiniteStateMachine::Activate(bool bReset)
 	const bool bMyIsActive = IsActive();
 	if (bMyIsActive)
 	{
-		GetWorldTimerManager().SetTimer(CancellersCleaningTimerHandle, this,
+		GetTimerManager().SetTimer(CancellersCleaningTimerHandle, this,
 			&ThisClass::ClearStatesInvalidLatentExecutionCancellers, StateExecutionCancellersClearingInterval, true);
 	}
 	else
 	{
-		GetWorldTimerManager().ClearTimer(CancellersCleaningTimerHandle);
+		GetTimerManager().ClearTimer(CancellersCleaningTimerHandle);
 	}
 
 	if (bMyIsActive && bActiveStatesBegan)
@@ -163,7 +163,7 @@ void UFiniteStateMachine::UninitializeComponent()
 	}
 
 	// Finilize the stack
-	ClearStates();
+	ClearStack();
 
 	// Sanity check
 	StopEveryLatentExecution();
@@ -646,8 +646,15 @@ void UFiniteStateMachine::PushState_Pending(FPendingPushRequest Request)
 	OnPushRequestResultDelegate.Broadcast(Request.ID, EPushRequestResult::Success);
 }
 
-int32 UFiniteStateMachine::ClearStates()
+int32 UFiniteStateMachine::ClearStack()
 {
+	if (IsActiveStateDispatchingEvent())
+	{
+		FSM_LOG(Warning, "The active state [%s] is dispatching an event. It's impossible to clear the stack.",
+			*ActiveState->GetName());
+		return 0;
+	}
+
 	int32 StatesPopped = 0;
 	while (!StatesStack.IsEmpty() && EndState())
 	{
@@ -881,7 +888,7 @@ AActor* UFiniteStateMachine::GetAvatar() const
 	return Owner;
 }
 
-FTimerManager& UFiniteStateMachine::GetWorldTimerManager() const
+FTimerManager& UFiniteStateMachine::GetTimerManager() const
 {
 	const UWorld* World = GetWorld();
 	check(IsValid(World));

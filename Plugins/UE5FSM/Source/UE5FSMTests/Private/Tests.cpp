@@ -241,6 +241,18 @@ bool FPopState::Update()
 	return true;
 }
 
+DEFINE_LATENT_AUTOMATION_COMMAND_THREE_PARAMETER(FClearStack,
+	FAutomationTestBase*, Test, AFiniteStateMachineTestActor**, TestActor, int32, StatesEnded);
+bool FClearStack::Update()
+{
+	LATENT_TEST_BEGIN();
+
+	const int32 Num = StateMachine->ClearStack();
+	LATENT_TEST_TRUE("All states have ended", Num == StatesEnded);
+
+	return true;
+}
+
 DEFINE_LATENT_AUTOMATION_COMMAND_THREE_PARAMETER(FEndState,
 	FAutomationTestBase*, Test, AFiniteStateMachineTestActor**, TestActor,
 	TSubclassOf<UMachineState>, ResumedStateClass);
@@ -1120,6 +1132,54 @@ bool FFiniteStateMachineLatentActionTest::RunTest(const FString& Parameters)
 	ADD_LATENT_AUTOMATION_COMMAND(FEndState(this, &TestActor, nullptr));
 
 	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_LatentActions2, "End", true));
+
+	// Check whether all predicted events took place in the correct order from the correct states
+	ADD_LATENT_AUTOMATION_COMMAND(FCompareTestMessages(this, ExpectedTestMessages));
+
+	// Finish test
+	ADD_LATENT_AUTOMATION_COMMAND(FEndLatentTest());
+	ADD_LATENT_AUTOMATION_COMMAND(FEndPlayMapCommand());
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineClearStackTest, "UE5FSM.ClearStackTest",
+	EAutomationTestFlags::ApplicationContextMask |
+	EAutomationTestFlags::HighPriority |
+	EAutomationTestFlags::ProductFilter);
+
+bool FFiniteStateMachineClearStackTest::RunTest(const FString& Parameters)
+{
+	static const TArray<FStateMachineTestMessage> ExpectedTestMessages
+	{
+		{ UMachineState_Test1::StaticClass(), "Begin", true },
+		{ UMachineState_Test1::StaticClass(), "Paused", true },
+		{ UMachineState_Test2::StaticClass(), "Pushed", true },
+		{ UMachineState_Test2::StaticClass(), "Paused", true },
+		{ UMachineState_Test3::StaticClass(), "Pushed", true },
+		{ UMachineState_Test3::StaticClass(), "End", true },
+		{ UMachineState_Test2::StaticClass(), "Resumed", true },
+		{ UMachineState_Test2::StaticClass(), "End", true },
+		{ UMachineState_Test1::StaticClass(), "Resumed", true },
+		{ UMachineState_Test1::StaticClass(), "End", true },
+	};
+
+	// Setup environment and test objects
+	ADD_LATENT_AUTOMATION_COMMAND(FStartLatentTest());
+	ADD_LATENT_AUTOMATION_COMMAND(FEditorLoadMap(FString("/Engine/Maps/Entry")));
+	ADD_LATENT_AUTOMATION_COMMAND(FStartPIECommand(true));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.f));
+	ADD_LATENT_AUTOMATION_COMMAND(FCreateTestActor(this, &TestActor));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FRegisterState(this, &TestActor, UMachineState_Test1::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FRegisterState(this, &TestActor, UMachineState_Test2::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FRegisterState(this, &TestActor, UMachineState_Test3::StaticClass()));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FGotoState(this, &TestActor, UMachineState_Test1::StaticClass(), TAG_StateMachine_Label_Default));
+	ADD_LATENT_AUTOMATION_COMMAND(FPushState(this, &TestActor, UMachineState_Test2::StaticClass(), TAG_StateMachine_Label_Default));
+	ADD_LATENT_AUTOMATION_COMMAND(FPushState(this, &TestActor, UMachineState_Test3::StaticClass(), TAG_StateMachine_Label_Default));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FClearStack(this, &TestActor, 3));
 
 	// Check whether all predicted events took place in the correct order from the correct states
 	ADD_LATENT_AUTOMATION_COMMAND(FCompareTestMessages(this, ExpectedTestMessages));

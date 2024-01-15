@@ -52,8 +52,6 @@ UE5FSM_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Default);
 #define GOTO_STATE_CLASS_LABEL(STATE_CLASS, LABEL_NAME, ...) \
 	GOTO_STATE_IMPLEMENTATION(STATE_CLASS, TAG_StateMachine_Label_ ## LABEL_NAME, ## __VA_ARGS__)
 
-#define GOTO_LABEL(LABEL_NAME) if (GotoLabel(TAG_StateMachine_Label_ ## LABEL_NAME)) co_return
-
 #define PUSH_STATE_IMPLEMENTATION(STATE_CLASS, LABEL) \
 	RUN_LATENT_EXECUTION(PushState, STATE_CLASS, LABEL)
 
@@ -84,8 +82,10 @@ UE5FSM_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Default);
 #define PUSH_STATE_QUEUED_CLASS_LABEL(HANDLE, STATE_CLASS, LABEL_NAME) \
 	PUSH_STATE_QUEUED_IMPLEMENTATION(HANDLE, STATE_CLASS, TAG_StateMachine_Label_ ## LABEL_NAME)
 
-#define POP_STATE() if (PopState()) co_return
-#define END_STATE() if (EndState()) co_return
+#define GOTO_LABEL(LABEL_NAME) do { if (GotoLabel(TAG_StateMachine_Label_ ## LABEL_NAME)) co_return; } while(0)
+#define POP_STATE() do { if (PopState()) co_return; } while(0)
+#define END_STATE() do { if (EndState()) co_return; } while(0)
+#define CLEAR_STACK() do { ClearStack(); co_return; } while(0)
 
 #define TO_STR(x) #x
 #define RUN_LATENT_EXECUTION(FUNCTION, ...) \
@@ -472,6 +472,12 @@ public:
 	 * GotoState).
 	 */
 	bool PopState();
+
+	/**
+	 * Clear all states from the stack leaving it empty.
+	 * @return	Amount of ended states.
+	 */
+	int32 ClearStack();
 
 	/**
 	 * Check whether state contains a given label.
