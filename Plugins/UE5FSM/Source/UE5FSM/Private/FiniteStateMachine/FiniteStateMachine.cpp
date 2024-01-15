@@ -1095,7 +1095,7 @@ void UFiniteStateMachine::PopState_Implementation()
 
 	// Keep track of the stack
 	StatesStack.Pop();
-	const TSubclassOf<UMachineState> PoppedState = ActiveState->StaticClass();
+	const TSubclassOf<UMachineState> PoppedState = ActiveState->GetClass();
 	ActiveState->OnStateAction(EStateAction::Pop, ResumedState);
 
 	if (!ResumedState)
@@ -1132,7 +1132,7 @@ void UFiniteStateMachine::EndState_Implementation()
 
 	// Keep track of the stack
 	StatesStack.Pop();
-	const TSubclassOf<UMachineState> EndedState = ActiveState->StaticClass();
+	const TSubclassOf<UMachineState> EndedState = ActiveState->GetClass();
 	ActiveState->OnStateAction(EStateAction::End, ResumedState);
 
 	if (!ResumedState)
