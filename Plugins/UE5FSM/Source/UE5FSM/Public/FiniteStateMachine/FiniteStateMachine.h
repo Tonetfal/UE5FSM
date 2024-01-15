@@ -173,6 +173,15 @@ public:
 		bool bForceEvents = true);
 
 	/**
+	 * End the active state. If there's any state below this in the stack, it'll resume its execution.
+	 * @return	If true, a state has ended, false otherwise.
+	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
+	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
+	 * EndState).
+	 */
+	bool EndState();
+
+	/**
 	 * Go to a label using the active state.
 	 * @param	Label label to go to.
 	 * @return	If true, label has been activated, false otherwise.
@@ -181,7 +190,8 @@ public:
 	bool GotoLabel(FGameplayTag Label);
 
 	/**
-	 * Push a state at a specified label on top of the stack.
+	 * Push a state at a specified label on top of the stack. If there's any active state, it'll be paused upon
+	 * successful push.
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state at.
 	 * @param	bOutPrematureResult output parameter. Boolean to use when you want to use the function result before it
@@ -193,7 +203,7 @@ public:
 	/**
 	 * Push a state at a specified label on top of the stack. If the operation is not possible to execute for
 	 * any reason that might change in the future, it'll queued, and apply it as soon as it becomes possible following
-	 * the existing queue order.
+	 * the existing queue order. If there's any active state, it'll be paused upon successful push.
 	 * @param	OutHandle output parameter. Push request handle used to interact with the request.
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state at.
@@ -202,22 +212,13 @@ public:
 		FGameplayTag Label = TAG_StateMachine_Label_Default);
 
 	/**
-	 * Pop the top-most state from stack.
+	 * Pop the top-most state from stack. If there's any state below this in the stack, it'll resume its execution.
 	 * @return	If true, a state has been popped, false otherwise.
 	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
 	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
 	 * PopState).
 	 */
 	bool PopState();
-
-	/**
-	 * End the top-most state from stack.
-	 * @return	If true, a state has ended, false otherwise.
-	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
-	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
-	 * EndState).
-	 */
-	bool EndState();
 
 	/**
 	 * Clear all states from the stack leaving it empty.
@@ -456,7 +457,7 @@ private:
 	TCoroutine<> PopState_LatentImplementation();
 
 	/**
-	 * End the top-most state from stack. Doesn't perform any check.
+	 * End the active state. Doesn't perform any check.
 	 * @return	If true, a state has ended, false otherwise.
 	 */
 	void EndState_Implementation();

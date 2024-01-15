@@ -162,13 +162,8 @@ void UFiniteStateMachine::UninitializeComponent()
 		ActiveGlobalState.Reset();
 	}
 
-	for (const TSubclassOf<UMachineState> Class : StatesStack)
-	{
-		UMachineState* State = FindStateChecked(Class);
-		State->OnStateAction(EStateAction::End, nullptr);
-	}
-
-	StatesStack.Empty();
+	// Finilize the stack
+	ClearStates();
 
 	// Sanity check
 	StopEveryLatentExecution();
@@ -344,6 +339,38 @@ bool UFiniteStateMachine::GotoState(TSubclassOf<UMachineState> InStateClass, FGa
 	return true;
 }
 
+bool UFiniteStateMachine::EndState()
+{
+	if (!ensure(HasBeenInitialized()))
+	{
+		FSM_LOG(Warning, "Impossible to end a state before initialization.");
+		return false;
+	}
+
+	if (!ActiveState.IsValid())
+	{
+		FSM_LOG(Warning, "Impossible to end a state as there's nothing to end.");
+		return false;
+	}
+
+	if (bIsRunningLatentRequest)
+	{
+		FSM_LOG(Warning, "A latent request is already running. Avoid calling multiple of them at once.");
+		return false;
+	}
+
+	if (!IsActiveStateDispatchingEvent())
+	{
+		EndState_Implementation();
+	}
+	else
+	{
+		EndState_LatentImplementation();
+	}
+
+	return true;
+}
+
 bool UFiniteStateMachine::GotoLabel(FGameplayTag Label)
 {
 	if (!ensure(HasBeenInitialized()))
@@ -474,14 +501,16 @@ TCoroutine<> UFiniteStateMachine::PushStateQueued(FFSM_PushRequestHandle& OutHan
 		co_return;
 	}
 
-	if (!IsActiveStateDispatchingEvent())
+	if (bIsRunningLatentRequest)
 	{
-		PushState_Implementation(InStateClass, Label);
+		FSM_LOG(Log, "A latent request is already running. Avoid calling multiple of them at once. "
+			"The operation will be queued.");
+
+		co_await AddAndWaitPendingPushRequest(OutHandle, InStateClass, Label);
+		co_return;
 	}
-	else
-	{
-		PushState_LatentImplementation(InStateClass, Label);
-	}
+
+	PushState_Implementation(InStateClass, Label);
 }
 
 bool UFiniteStateMachine::PopState()
@@ -498,6 +527,12 @@ bool UFiniteStateMachine::PopState()
 		return false;
 	}
 
+	if (bIsRunningLatentRequest)
+	{
+		FSM_LOG(Warning, "A latent request is already running. Avoid calling multiple of them at once.");
+		return false;
+	}
+
 	if (!IsActiveStateDispatchingEvent())
 	{
 		PopState_Implementation();
@@ -505,32 +540,6 @@ bool UFiniteStateMachine::PopState()
 	else
 	{
 		PopState_LatentImplementation();
-	}
-
-	return true;
-}
-
-bool UFiniteStateMachine::EndState()
-{
-	if (!ensure(HasBeenInitialized()))
-	{
-		FSM_LOG(Warning, "Impossible to end a state before initialization.");
-		return false;
-	}
-
-	if (!ActiveState.IsValid())
-	{
-		FSM_LOG(Warning, "Impossible to end a state as there's nothing to end.");
-		return false;
-	}
-
-	if (!IsActiveStateDispatchingEvent())
-	{
-		EndState_Implementation();
-	}
-	else
-	{
-		EndState_LatentImplementation();
 	}
 
 	return true;
@@ -600,6 +609,11 @@ void UFiniteStateMachine::PushState_Pending(FPendingPushRequest Request)
 		return;
 	}
 
+	if (bIsRunningLatentRequest)
+	{
+		return;
+	}
+
 	// Sanity check; Should never happen
 	if (ActiveState.IsValid())
 	{
@@ -635,7 +649,7 @@ void UFiniteStateMachine::PushState_Pending(FPendingPushRequest Request)
 int32 UFiniteStateMachine::ClearStates()
 {
 	int32 StatesPopped = 0;
-	while (!StatesStack.IsEmpty() && PopState())
+	while (!StatesStack.IsEmpty() && EndState())
 	{
 		StatesPopped++;
 	}
