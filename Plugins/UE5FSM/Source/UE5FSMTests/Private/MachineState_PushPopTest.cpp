@@ -7,9 +7,9 @@ UMachineState_PushPopTest::UMachineState_PushPopTest()
 	REGISTER_LABEL(Test);
 }
 
-void UMachineState_PushPopTest::OnPopped()
+void UMachineState_PushPopTest::OnPopped(TSubclassOf<UMachineState> NewState)
 {
-	Super::OnPopped();
+	Super::OnPopped(NewState);
 
 	if (bNotifyTestFinish)
 	{

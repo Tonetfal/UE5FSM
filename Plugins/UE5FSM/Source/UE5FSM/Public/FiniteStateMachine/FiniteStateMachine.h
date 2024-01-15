@@ -80,10 +80,6 @@ class UE5FSM_API UFiniteStateMachine
 {
 	GENERATED_BODY()
 
-private:
-	/** Disallows to enter certain methods that change internal state while already changing it. */
-	friend struct FFiniteStateMachineInternalStateModificationCounterWrapper;
-
 public:
 	enum class EPushRequestResult : uint8
 	{
@@ -210,9 +206,18 @@ public:
 	 * @return	If true, a state has been popped, false otherwise.
 	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
 	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
-	 * GotoState).
+	 * PopState).
 	 */
 	bool PopState();
+
+	/**
+	 * End the top-most state from stack.
+	 * @return	If true, a state has ended, false otherwise.
+	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
+	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
+	 * EndState).
+	 */
+	bool EndState();
 
 	/**
 	 * Clear all states from the stack leaving it empty.
@@ -432,6 +437,8 @@ private:
 	 * otherwise do not.
 	 */
 	void GotoState_Implementation(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label, bool bForceEvents);
+	TCoroutine<> GotoState_LatentImplementation(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label,
+		bool bForceEvents);
 
 	/**
 	 * Push a specified state at a requested label on top of the stack. Doesn't perform any check.
@@ -439,12 +446,21 @@ private:
 	 * @param	Label label to start the state at.
 	 */
 	TCoroutine<> PushState_Implementation(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label);
+	TCoroutine<> PushState_LatentImplementation(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label);
 
 	/**
 	 * Pop the top-most state from stack. Doesn't perform any check.
 	 * @return	If true, a state has been popped, false otherwise.
 	 */
 	void PopState_Implementation();
+	TCoroutine<> PopState_LatentImplementation();
+
+	/**
+	 * End the top-most state from stack. Doesn't perform any check.
+	 * @return	If true, a state has ended, false otherwise.
+	 */
+	void EndState_Implementation();
+	TCoroutine<> EndState_LatentImplementation();
 
 	/**
 	 * Wait until a specified state gets a specified state action.
@@ -452,6 +468,11 @@ private:
 	 * @param	StateAction state action to wait.
 	 */
 	TCoroutine<> WaitUntilStateAction(TSubclassOf<UMachineState> InStateClass, EStateAction StateAction) const;
+
+	/**
+	 * Wait until the active state dispatches an event that it is *currently* dispatching.
+	 */
+	TCoroutine<> WaitUntilActiveStateEventDispatch();
 
 	/**
 	 * Push a request in the queue
@@ -479,6 +500,26 @@ private:
 	 * @return	Amount of removed invalid latent execution cancellers.
 	 */
 	void ClearStatesInvalidLatentExecutionCancellers();
+
+	/**
+	 * Check whether active state allows to transit to given state.
+	 * @param	InStateClass state to check the transition for.
+	 * @return	If true, transition is allowed, false otherwise.
+	 */
+	bool IsTransitionBlockedTo(TSubclassOf<UMachineState> InStateClass) const;
+
+	/**
+	 * Check whether active state can be safely deactived.
+	 * @param	OutReason output parameter. The reason it cannot deactivate if so.
+	 * @return	If true, it can safely deactivate, false otherwise.
+	 */
+	bool CanActiveStateSafelyDeactivate(FString& OutReason) const;
+
+	/**
+	 * Check whether the active state is dispatching an event (begin, end, push, pop, pause, resume).
+	 * @return	If true, it's not safe to deactivate it, false otherwise.
+	 */
+	bool IsActiveStateDispatchingEvent() const;
 
 private:
 	/** Called when a pending push request is completed with any result. */
@@ -527,9 +568,6 @@ private:
 	/** If true, initial states have been activated, false otherwise. */
 	bool bActiveStatesBegan = false;
 
-	/** If non-zero, important internal state is being modified. */
-	int32 InternalStateModificationsCounter = 0;
-
 	/** Time in seconds it takes to start clearing state execution cancellers. */
 	UPROPERTY(Config)
 	float StateExecutionCancellersClearingInterval = 60.f;
@@ -547,6 +585,12 @@ private:
 
 	/** Timer associated with clearing state execution cancellers process. */
 	FTimerHandle CancellersCleaningTimerHandle;
+
+	/**
+	 * If true, a latent request (GotoState, EndState, PushState, or PopState) is running, and it's not safe to run
+	 * another one, false otherwise.
+	 */
+	bool bIsRunningLatentRequest = false;
 };
 
 template<typename UserClass>

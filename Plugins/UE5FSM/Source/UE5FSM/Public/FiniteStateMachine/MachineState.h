@@ -13,6 +13,7 @@
 class UFiniteStateMachine;
 class UMachineStateData;
 struct FFSM_PushRequestHandle;
+struct FMS_IsDispatchingEventManager;
 
 using namespace UE5Coro;
 
@@ -84,6 +85,7 @@ UE5FSM_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Default);
 	PUSH_STATE_QUEUED_IMPLEMENTATION(HANDLE, STATE_CLASS, TAG_StateMachine_Label_ ## LABEL_NAME)
 
 #define POP_STATE() if (PopState()) co_return
+#define END_STATE() if (EndState()) co_return
 
 #define TO_STR(x) #x
 #define RUN_LATENT_EXECUTION(FUNCTION, ...) \
@@ -149,6 +151,9 @@ public:
 	/** Has to initialize the state. */
 	friend UFiniteStateMachine;
 
+	/** It queues certain users calls (GotoState, PushState, PopState) while dispatching event. */
+	friend FMS_IsDispatchingEventManager;
+
 public:
 	DECLARE_DELEGATE_RetVal(
 		TCoroutine<>, FLabelSignature);
@@ -167,6 +172,12 @@ public:
 	 * @return 	If true, the state has been or being destroyed, false otherwise.
 	 */
 	bool IsStateValid() const;
+
+	/**
+	 * Check whether this machine state is currently dispatching an event (Begin, End, Push, Pop, Resume, or Pop).
+	 * @return 	If true, an event is being dispatch, false otherwise.
+	 */
+	bool IsDispatchingEvent() const;
 
 	/**
 	 * Get currently active label.
@@ -198,11 +209,12 @@ public:
 	 */
 	virtual FString GetDebugData() const;
 
+#pragma region Events
 protected:
 	/**
 	 * Called when state starts the execution.
 	 */
-	virtual void OnBegan(TSubclassOf<UMachineState> PreviousState);
+	virtual void OnBegan(TSubclassOf<UMachineState> OldState);
 
 	/**
 	 * Called when state terminates the execution.
@@ -213,52 +225,60 @@ protected:
 	 * Called when state gets pushed to the state stack.
 	 * @note	When state is pushed, Begin is not called.
 	 */
-	virtual void OnPushed();
+	virtual void OnPushed(TSubclassOf<UMachineState> OldState);
 
 	/**
 	 * Called when state gets pushed to the state stack.
 	 * @note	When state is pushed, Begin is not called.
 	 */
-	virtual void OnPopped();
+	virtual void OnPopped(TSubclassOf<UMachineState> NewState);
 
 	/**
 	 * Called when another state got popped from the stack, leaving us be the top-most one.
 	 */
-	virtual void OnResumed();
+	virtual void OnResumed(TSubclassOf<UMachineState> OldState);
 
 	/**
 	 * Called when another state got pushed when we were the top-most one.
 	 */
-	virtual void OnPaused();
+	virtual void OnPaused(TSubclassOf<UMachineState> NewState);
 
 	/**
 	 * Called when the state becomes active, or, in other words, it becomes the top-most state on the stack.
 	 * It's either just started or got resumed.
 	 * @param	StateAction state action this function was called due.
+	 * @param	OldState state that was active before this one was activated.
+	 * @see		UMachineState::OnBegan, UMachineState::OnPushed, UMachineState::OnResumed
 	 */
-	virtual void OnActivated(EStateAction StateAction);
+	virtual void OnActivated(EStateAction StateAction, TSubclassOf<UMachineState> OldState);
 
 	/**
 	 * Called when the state becomes inactive, or, in other words, it's not the top-most state on the stack anymore,
 	 * yet it's present. It's either not present on the stack anymore or got paused.
 	 * @param	StateAction state action this function was called due.
+	 * @param	NewState state that got activated after this one got deactivated.
+	 * @see		UMachineState::OnEnded, UMachineState::OnPopped, UMachineState::OnPaused
 	 */
-	virtual void OnDeactivated(EStateAction StateAction);
+	virtual void OnDeactivated(EStateAction StateAction, TSubclassOf<UMachineState> NewState);
 
 	/**
 	 * Called when the state is added to the stack, i.e. it either began or got pushed on it.
 	 * @param	StateAction state action this function was called due.
-	 * @see		UMachineState::Begin, UMachineState::Pushed
+	 * @param	OldState state that this one was added upon.
+	 * @see		UMachineState::OnBegan, UMachineState::OnPushed
 	 */
-	virtual void OnAddedToStack(EStateAction StateAction);
+	virtual void OnAddedToStack(EStateAction StateAction, TSubclassOf<UMachineState> OldState);
 
 	/**
 	 * Called when the state is not present on the stack anymore, i.e. it either ended or got popped out of it.
 	 * @param	StateAction state action this function was called due.
-	 * @see		UMachineState::End, UMachineState::Popped
+	 * @param	NewState state that got activated after this one got deactivated.
+	 * @see		UMachineState::OnEnded, UMachineState::Popped
 	 */
-	virtual void OnRemovedFromStack(EStateAction StateAction);
+	virtual void OnRemovedFromStack(EStateAction StateAction, TSubclassOf<UMachineState> NewState);
+#pragma endregion
 
+protected:
 	/**
 	 * Register a new label this state contains.
 	 * @param	Label gameplay tag associated with the label.
@@ -350,9 +370,9 @@ private:
 	/**
 	 * Called when state action takes place.
 	 * @param	StateAction state action to trigger.
-	 * @param	OptionalData optional data client might send.
+	 * @param	StateClass state that is either the new active one, or the one that got deactivated.
 	 */
-	void OnStateAction(EStateAction StateAction, void* OptionalData = nullptr);
+	void OnStateAction(EStateAction StateAction, TSubclassOf<UMachineState> StateClass);
 
 	/**
 	 * Check whether this state can safely be deactivated.
@@ -461,6 +481,12 @@ public:
 
 public:
 	/**
+	 * Get owner.
+	 * @return Owner.
+	 */
+	AActor* GetOwner() const;
+
+	/**
 	 * Get typed owner.
 	 * @return Typed owner.
 	 */
@@ -499,6 +525,10 @@ protected:
 public:
 	/** Fired when state action has been performed. */
 	FOnStateActionSignature OnStateActionDelegate;
+
+private:
+	/** Delegate to execute when an event has dispatched. It's intended to be used only by the FSM. */
+	FSimpleDelegate OnFinishedDispatchingEvent;
 
 private:
 	struct FLatentExecution
@@ -554,6 +584,9 @@ private:
 
 	/** Time the last state action took place. */
 	float LastStateActionTime = 0.f;
+
+	/** If true, an event is currently dispatching, false otherwise. */
+	bool bIsDispatchingEvent = false;
 };
 
 template<typename TFunction, typename... TArgs>

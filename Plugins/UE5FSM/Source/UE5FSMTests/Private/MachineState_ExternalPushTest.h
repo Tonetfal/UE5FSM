@@ -15,8 +15,8 @@ class UMachineState_ExternalPushTest
 
 protected:
 	//~UMachineState_Test Interface
-	virtual void OnResumed() override;
-	virtual void OnAddedToStack(EStateAction StateAction) override;
+	virtual void OnResumed(TSubclassOf<UMachineState> OldState) override;
+	virtual void OnAddedToStack(EStateAction StateAction, TSubclassOf<UMachineState> OldState) override;
 	//~End of UMachineState_Test Interface
 
 	//~Labels

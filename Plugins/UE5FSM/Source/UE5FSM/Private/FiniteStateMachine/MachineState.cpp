@@ -8,6 +8,37 @@
 UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_StateMachine_Label, "StateMachine.Label");
 UE_DEFINE_GAMEPLAY_TAG(TAG_StateMachine_Label_Default, "StateMachine.Label.Default");
 
+/**
+ * Simple RAII wrapper for UMachineState::bIsDispatchingEvent.
+ * It queues certain users calls (GotoState, PushState, PopState) while dispatching event.
+ */
+struct FMS_IsDispatchingEventManager
+{
+public:
+	explicit FMS_IsDispatchingEventManager(UMachineState* Context)
+		: ContextRef(Context)
+		, bIsDispatchingEvent(Context->bIsDispatchingEvent)
+	{
+		ensure(!bIsDispatchingEvent);
+		bIsDispatchingEvent = true;
+	}
+
+	~FMS_IsDispatchingEventManager()
+	{
+		bIsDispatchingEvent = false;
+		ensure(!bIsDispatchingEvent);
+
+		if (ContextRef.IsValid() && ContextRef->OnFinishedDispatchingEvent.IsBound())
+		{
+			ContextRef->OnFinishedDispatchingEvent.Execute();
+		}
+	}
+
+private:
+	TWeakObjectPtr<UMachineState> ContextRef = nullptr;
+	bool& bIsDispatchingEvent;
+};
+
 UMachineState::UMachineState()
 {
 	// Default place to define your custom machine state data class
@@ -26,6 +57,11 @@ UMachineState::~UMachineState()
 bool UMachineState::IsStateValid() const
 {
 	return IsValid(this) && !bIsDestroyed;
+}
+
+bool UMachineState::IsDispatchingEvent() const
+{
+	return bIsDispatchingEvent;
 }
 
 FGameplayTag UMachineState::GetActiveLabel() const
@@ -49,62 +85,62 @@ FString UMachineState::GetDebugData() const
 	return "";
 }
 
-void UMachineState::OnBegan(TSubclassOf<UMachineState> PreviousState)
+void UMachineState::OnBegan(TSubclassOf<UMachineState> OldState)
 {
-	OnAddedToStack(EStateAction::Begin);
-	OnActivated(EStateAction::Begin);
+	OnAddedToStack(EStateAction::Begin, OldState);
+	OnActivated(EStateAction::Begin, OldState);
 }
 
 void UMachineState::OnEnded(TSubclassOf<UMachineState> NewState)
 {
 	ensureMsgf(!bIsActivatingLabel, TEXT("Ending a state while a label is being activated is prohibited."));
 
-	OnRemovedFromStack(EStateAction::End);
-
 	if (IsStateActive())
 	{
-		OnDeactivated(EStateAction::End);
+		OnDeactivated(EStateAction::End, NewState);
 	}
+
+	OnRemovedFromStack(EStateAction::End, NewState);
 }
 
-void UMachineState::OnPushed()
+void UMachineState::OnPushed(TSubclassOf<UMachineState> OldState)
 {
-	OnAddedToStack(EStateAction::Push);
-	OnActivated(EStateAction::Push);
+	OnAddedToStack(EStateAction::Push, OldState);
+	OnActivated(EStateAction::Push, OldState);
 }
 
-void UMachineState::OnPopped()
+void UMachineState::OnPopped(TSubclassOf<UMachineState> NewState)
 {
-	OnRemovedFromStack(EStateAction::Pop);
-	OnDeactivated(EStateAction::Pop);
+	OnDeactivated(EStateAction::Pop, NewState);
+	OnRemovedFromStack(EStateAction::Pop, NewState);
 }
 
-void UMachineState::OnResumed()
+void UMachineState::OnResumed(TSubclassOf<UMachineState> OldState)
 {
-	OnActivated(EStateAction::Resume);
+	OnActivated(EStateAction::Resume, OldState);
 }
 
-void UMachineState::OnPaused()
+void UMachineState::OnPaused(TSubclassOf<UMachineState> NewState)
 {
-	OnDeactivated(EStateAction::Pause);
+	OnDeactivated(EStateAction::Pause, NewState);
 }
 
-void UMachineState::OnActivated(EStateAction StateAction)
-{
-	// Empty
-}
-
-void UMachineState::OnDeactivated(EStateAction StateAction)
+void UMachineState::OnActivated(EStateAction StateAction, TSubclassOf<UMachineState> OldState)
 {
 	// Empty
 }
 
-void UMachineState::OnAddedToStack(EStateAction StateAction)
+void UMachineState::OnDeactivated(EStateAction StateAction, TSubclassOf<UMachineState> NewState)
 {
 	// Empty
 }
 
-void UMachineState::OnRemovedFromStack(EStateAction StateAction)
+void UMachineState::OnAddedToStack(EStateAction StateAction, TSubclassOf<UMachineState> OldState)
+{
+	// Empty
+}
+
+void UMachineState::OnRemovedFromStack(EStateAction StateAction, TSubclassOf<UMachineState> NewState)
 {
 	StopRunningLabels();
 	StopLatentExecution_Implementation();
@@ -292,24 +328,28 @@ void UMachineState::SetInitialLabel(FGameplayTag Label)
 	bLabelActivated = false;
 }
 
-void UMachineState::OnStateAction(EStateAction StateAction, void* OptionalData)
+void UMachineState::OnStateAction(EStateAction StateAction, TSubclassOf<UMachineState> StateClass)
 {
-	FSM_LOG(Log, "[%s] has been [%s].", *GetName(), *UEnum::GetValueAsString(StateAction));
-
-	switch (StateAction)
 	{
-		case EStateAction::Begin:	OnBegan(static_cast<UClass*>(OptionalData)); break;
-		case EStateAction::End:		OnEnded(static_cast<UClass*>(OptionalData)); break;
-		case EStateAction::Push:	OnPushed(); break;
-		case EStateAction::Pop:		OnPopped(); break;
-		case EStateAction::Resume:	OnResumed(); break;
-		case EStateAction::Pause:	OnPaused(); break;
-		default: checkNoEntry();
-	}
+		FMS_IsDispatchingEventManager Guard(this);
 
-	// Save for debug purposes
-	LastStateAction = StateAction;
-	LastStateActionTime = GetTime();
+		FSM_LOG(Log, "[%s] has been [%s].", *GetName(), *UEnum::GetValueAsString(StateAction));
+
+		switch (StateAction)
+		{
+		case EStateAction::Begin:	OnBegan(StateClass); break;
+		case EStateAction::End:		OnEnded(StateClass); break;
+		case EStateAction::Push:	OnPushed(StateClass); break;
+		case EStateAction::Pop:		OnPopped(StateClass); break;
+		case EStateAction::Resume:	OnResumed(StateClass); break;
+		case EStateAction::Pause:	OnPaused(StateClass); break;
+		default: checkNoEntry();
+		}
+
+		// Save for debug purposes
+		LastStateAction = StateAction;
+		LastStateActionTime = GetTime();
+	}
 
 	// Notify about a state action
 	OnStateActionDelegate.Broadcast(this, StateAction);
@@ -387,6 +427,11 @@ bool UMachineState::ContainsLabel(FGameplayTag Label) const
 bool UMachineState::IsLabelTagCorrect(FGameplayTag Tag)
 {
 	return Tag.MatchesTag(TAG_StateMachine_Label);
+}
+
+AActor* UMachineState::GetOwner() const
+{
+	return GetOwner<AActor>();
 }
 
 float UMachineState::GetTime() const

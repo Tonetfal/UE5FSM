@@ -1,8 +1,8 @@
 ﻿#include "MachineState_ExternalPushTest.h"
 
-void UMachineState_ExternalPushTest::OnResumed()
+void UMachineState_ExternalPushTest::OnResumed(TSubclassOf<UMachineState> OldState)
 {
-	Super::OnResumed();
+	Super::OnResumed(OldState);
 
 	FTimerHandle TimerHandle;
 	GetTimerManager().SetTimer(TimerHandle, [this]
@@ -18,9 +18,9 @@ void UMachineState_ExternalPushTest::OnResumed()
 	}, 1.f, false);
 }
 
-void UMachineState_ExternalPushTest::OnAddedToStack(EStateAction StateAction)
+void UMachineState_ExternalPushTest::OnAddedToStack(EStateAction StateAction, TSubclassOf<UMachineState> OldState)
 {
-	Super::OnAddedToStack(StateAction);
+	Super::OnAddedToStack(StateAction, OldState);
 
 	FTimerHandle TimerHandle;
 	GetTimerManager().SetTimer(TimerHandle, [this]

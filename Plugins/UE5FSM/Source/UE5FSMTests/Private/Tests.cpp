@@ -4,6 +4,7 @@
 #include "MachineState_BlockedPushTest.h"
 #include "MachineState_ExternalPushPopTest.h"
 #include "MachineState_ExternalPushTest.h"
+#include "MachineState_LatentActions.h"
 #include "MachineState_LatentTest.h"
 #include "MachineState_PushPopTest.h"
 #include "MachineState_StartWithNotDefaultLabel.h"
@@ -232,6 +233,21 @@ bool FPopState::Update()
 {
 	LATENT_TEST_BEGIN();
 	LATENT_TEST_TRUE("Pop state", StateMachine->PopState());
+	if (ResumedStateClass)
+	{
+		LATENT_TEST_TRUE("Is state active?", StateMachine->IsInState(ResumedStateClass));
+	}
+
+	return true;
+}
+
+DEFINE_LATENT_AUTOMATION_COMMAND_THREE_PARAMETER(FEndState,
+	FAutomationTestBase*, Test, AFiniteStateMachineTestActor**, TestActor,
+	TSubclassOf<UMachineState>, ResumedStateClass);
+bool FEndState::Update()
+{
+	LATENT_TEST_BEGIN();
+	LATENT_TEST_TRUE("End state", StateMachine->EndState());
 	if (ResumedStateClass)
 	{
 		LATENT_TEST_TRUE("Is state active?", StateMachine->IsInState(ResumedStateClass));
@@ -1064,6 +1080,46 @@ bool FFiniteStateMachineBlockedPushTest::RunTest(const FString& Parameters)
 	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest1, "Resumed", true));
 
 	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_BlockedPushTest1, "Popped", true));
+
+	// Check whether all predicted events took place in the correct order from the correct states
+	ADD_LATENT_AUTOMATION_COMMAND(FCompareTestMessages(this, ExpectedTestMessages));
+
+	// Finish test
+	ADD_LATENT_AUTOMATION_COMMAND(FEndLatentTest());
+	ADD_LATENT_AUTOMATION_COMMAND(FEndPlayMapCommand());
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFiniteStateMachineLatentActionTest, "UE5FSM.LatentActionTest",
+	EAutomationTestFlags::ApplicationContextMask |
+	EAutomationTestFlags::HighPriority |
+	EAutomationTestFlags::ProductFilter);
+
+bool FFiniteStateMachineLatentActionTest::RunTest(const FString& Parameters)
+{
+	static TArray<FStateMachineTestMessage> ExpectedTestMessages;
+	ExpectedTestMessages.Empty();
+
+	// Setup environment and test objects
+	ADD_LATENT_AUTOMATION_COMMAND(FStartLatentTest());
+	ADD_LATENT_AUTOMATION_COMMAND(FEditorLoadMap(FString("/Engine/Maps/Entry")));
+	ADD_LATENT_AUTOMATION_COMMAND(FStartPIECommand(true));
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(1.f));
+	ADD_LATENT_AUTOMATION_COMMAND(FCreateTestActor(this, &TestActor));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FRegisterState(this, &TestActor, UMachineState_LatentActions1::StaticClass()));
+	ADD_LATENT_AUTOMATION_COMMAND(FRegisterState(this, &TestActor, UMachineState_LatentActions2::StaticClass()));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FGotoState(this, &TestActor, UMachineState_LatentActions1::StaticClass(), TAG_StateMachine_Label_Default));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_LatentActions1, "Begin", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_LatentActions1, "End", true));
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_LatentActions2, "Begin", true));
+
+	ADD_LATENT_AUTOMATION_COMMAND(FEndState(this, &TestActor, nullptr));
+
+	ExpectedTestMessages.Add(PREDICTED_TEST_MESSAGE(UMachineState_LatentActions2, "End", true));
 
 	// Check whether all predicted events took place in the correct order from the correct states
 	ADD_LATENT_AUTOMATION_COMMAND(FCompareTestMessages(this, ExpectedTestMessages));

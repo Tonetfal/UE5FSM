@@ -5,30 +5,6 @@
 #include "FiniteStateMachine/MachineStateData.h"
 #include "GameFramework/PlayerState.h"
 
-/**
- * Simple RAII wrapper for UFiniteStateMachineMutex::InternalStateModificationsCounter.
- * It disallows users to call certain code while some other is running.
- */
-struct FFiniteStateMachineInternalStateModificationCounterWrapper
-{
-public:
-	explicit FFiniteStateMachineInternalStateModificationCounterWrapper(UFiniteStateMachine* Context)
-		: InternalStateModificationsCounter(Context->InternalStateModificationsCounter)
-	{
-		ensure(InternalStateModificationsCounter >= 0);
-		InternalStateModificationsCounter++;
-	}
-
-	~FFiniteStateMachineInternalStateModificationCounterWrapper()
-	{
-		InternalStateModificationsCounter--;
-		ensure(InternalStateModificationsCounter >= 0);
-	}
-
-private:
-	int32& InternalStateModificationsCounter;
-};
-
 void FFSM_PushRequestHandle::BindOnResultCallback(const FOnPendingPushRequestSignature::FDelegate&& Callback) const
 {
 	if (StateMachine.IsValid())
@@ -99,12 +75,12 @@ void UFiniteStateMachine::Activate(bool bReset)
 	{
 		if (ActiveGlobalState.IsValid())
 		{
-			ActiveGlobalState->OnStateAction(EStateAction::Resume);
+			ActiveGlobalState->OnStateAction(EStateAction::Resume, nullptr);
 		}
 
 		if (ActiveState.IsValid())
 		{
-			ActiveGlobalState->OnStateAction(EStateAction::Resume);
+			ActiveGlobalState->OnStateAction(EStateAction::Resume, nullptr);
 		}
 	}
 
@@ -117,12 +93,12 @@ void UFiniteStateMachine::Activate(bool bReset)
 	{
 		if (ActiveGlobalState.IsValid())
 		{
-			ActiveGlobalState->OnStateAction(EStateAction::Pause);
+			ActiveGlobalState->OnStateAction(EStateAction::Pause, nullptr);
 		}
 
 		if (ActiveState.IsValid())
 		{
-			ActiveGlobalState->OnStateAction(EStateAction::Pause);
+			ActiveGlobalState->OnStateAction(EStateAction::Pause, nullptr);
 		}
 
 		// If state machine was deactivated, we don't want anything to run
@@ -309,13 +285,6 @@ bool UFiniteStateMachine::GotoState(TSubclassOf<UMachineState> InStateClass, FGa
 		return false;
 	}
 
-	if (InternalStateModificationsCounter > 0)
-	{
-		FSM_LOG(Warning, "Impossible to use GotoState on [%s] while modifying internal state.",
-			*GetNameSafe(InStateClass));
-		return false;
-	}
-
 	if (!IsValid(InStateClass))
 	{
 		FSM_LOG(Warning, "Invalid state class.");
@@ -323,18 +292,14 @@ bool UFiniteStateMachine::GotoState(TSubclassOf<UMachineState> InStateClass, FGa
 	}
 
 	// Disallow going to state when it's on the stack, but it's not the top-most one
-	if (ActiveState.IsValid() && ActiveState->GetClass() != InStateClass && StatesStack.Contains(InStateClass))
+	if (IsInState(InStateClass, true) && ActiveState->GetClass() != InStateClass)
 	{
-		FSM_LOG(Warning, "Impossible to go to state [%s] as it's already present in the states stack.",
+		FSM_LOG(Warning, "Impossible to go to state [%s] as it's already present on the states stack.",
 			*GetNameSafe(InStateClass));
 		return false;
 	}
 
-	if (ActiveState.IsValid() &&
-		ActiveState->StatesBlocklist.ContainsByPredicate([InStateClass] (const TSubclassOf<UMachineState> Item)
-		{
-			return InStateClass->IsChildOf(Item);
-		}))
+	if (IsTransitionBlockedTo(InStateClass))
 	{
 		FSM_LOG(Warning, "Impossible to go to state [%s] as active state [%s] has disallowed this particular "
 			"transition.", *GetNameSafe(InStateClass), *ActiveState->GetName());
@@ -342,7 +307,7 @@ bool UFiniteStateMachine::GotoState(TSubclassOf<UMachineState> InStateClass, FGa
 	}
 
 	FString Reason;
-	if (ActiveState.IsValid() && !ActiveState->CanSafelyDeactivate(OUT Reason))
+	if (!CanActiveStateSafelyDeactivate(Reason))
 	{
 		FSM_LOG(Warning, "Impossible to go to state [%s] as active state [%s] is not safe from being deactivated. "
 			"Reason: [%s]", *GetNameSafe(InStateClass), *ActiveState->GetName(), *Reason);
@@ -361,7 +326,21 @@ bool UFiniteStateMachine::GotoState(TSubclassOf<UMachineState> InStateClass, FGa
 		return false;
 	}
 
-	GotoState_Implementation(InStateClass, Label, bForceEvents);
+	if (bIsRunningLatentRequest)
+	{
+		FSM_LOG(Warning, "A latent request is already running. Avoid calling multiple of them at once.");
+		return false;
+	}
+
+	if (!IsActiveStateDispatchingEvent())
+	{
+		GotoState_Implementation(InStateClass, Label, bForceEvents);
+	}
+	else
+	{
+		GotoState_LatentImplementation(InStateClass, Label, bForceEvents);
+	}
+
 	return true;
 }
 
@@ -397,24 +376,15 @@ TCoroutine<> UFiniteStateMachine::PushState(TSubclassOf<UMachineState> InStateCl
 		co_return;
 	}
 
-	if (InternalStateModificationsCounter > 0)
-	{
-		FSM_LOG(Warning, "Impossible to push state [%s] while modifying internal state.", *GetNameSafe(InStateClass));
-		co_return;
-	}
-
 	if (!IsValid(InStateClass))
 	{
 		FSM_LOG(Warning, "Invalid state class.");
 		co_return;
 	}
 
-	if (StatesStack.ContainsByPredicate([InStateClass] (const TSubclassOf<UMachineState> StateClass)
-		{
-			return StateClass->IsChildOf(InStateClass);
-		}))
+	if (IsInState(InStateClass, true))
 	{
-		FSM_LOG(Warning, "Impossible to push state [%s] as it's already present in the stack.",
+		FSM_LOG(Warning, "Impossible to push state [%s] as it's already present on the states stack.",
 			*GetNameSafe(InStateClass));
 		co_return;
 	}
@@ -431,13 +401,25 @@ TCoroutine<> UFiniteStateMachine::PushState(TSubclassOf<UMachineState> InStateCl
 		co_return;
 	}
 
+	if (bIsRunningLatentRequest)
+	{
+		FSM_LOG(Warning, "A latent request is already running. Avoid calling multiple of them at once.");
+		co_return;
+	}
+
 	if (bOutPrematureResult)
 	{
-		// If PushState_Implementation is called, it means that we always will
 		*bOutPrematureResult = true;
 	}
 
-	co_await PushState_Implementation(InStateClass, Label);
+	if (!IsActiveStateDispatchingEvent())
+	{
+		PushState_Implementation(InStateClass, Label);
+	}
+	else
+	{
+		PushState_LatentImplementation(InStateClass, Label);
+	}
 }
 
 TCoroutine<> UFiniteStateMachine::PushStateQueued(FFSM_PushRequestHandle& OutHandle,
@@ -464,34 +446,19 @@ TCoroutine<> UFiniteStateMachine::PushStateQueued(FFSM_PushRequestHandle& OutHan
 		co_return;
 	}
 
-	if (InternalStateModificationsCounter > 0)
-	{
-		FSM_LOG(Log, "Impossible to immediately push a state [%s] while modifying internal state. "
-			"The operation will be queued.", *GetNameSafe(InStateClass));
-
-		co_await AddAndWaitPendingPushRequest(OutHandle, InStateClass, Label);
-		co_return;
-	}
-
-	if (ActiveState.IsValid() &&
-		ActiveState->StatesBlocklist.ContainsByPredicate([InStateClass] (const TSubclassOf<UMachineState> Item)
-		{
-			return InStateClass->IsChildOf(Item);
-		}))
+	if (IsTransitionBlockedTo(InStateClass))
 	{
 		FSM_LOG(Log, "Impossible to immediately go to state [%s] as active state [%s] has disallowed this "
-			"particular transition. The operation will be queued.", *GetNameSafe(InStateClass), *ActiveState->GetName());
+			"particular transition. The operation will be queued.",
+			*GetNameSafe(InStateClass), *ActiveState->GetName());
 
 		co_await AddAndWaitPendingPushRequest(OutHandle, InStateClass, Label);
 		co_return;
 	}
 
-	if (StatesStack.ContainsByPredicate([InStateClass] (const TSubclassOf<UMachineState> StateClass)
-		{
-			return StateClass->IsChildOf(InStateClass);
-		}))
+	if (IsInState(InStateClass, true))
 	{
-		FSM_LOG(Log, "Impossible to immediately push state [%s] as it's already present in the stack. "
+		FSM_LOG(Log, "Impossible to immediately push state [%s] as it's already present on the states stack. "
 			"The operation will be queued.", *GetNameSafe(InStateClass));
 
 		co_await AddAndWaitPendingPushRequest(OutHandle, InStateClass, Label);
@@ -507,7 +474,14 @@ TCoroutine<> UFiniteStateMachine::PushStateQueued(FFSM_PushRequestHandle& OutHan
 		co_return;
 	}
 
-	co_await PushState_Implementation(InStateClass, Label);
+	if (!IsActiveStateDispatchingEvent())
+	{
+		PushState_Implementation(InStateClass, Label);
+	}
+	else
+	{
+		PushState_LatentImplementation(InStateClass, Label);
+	}
 }
 
 bool UFiniteStateMachine::PopState()
@@ -518,19 +492,47 @@ bool UFiniteStateMachine::PopState()
 		return false;
 	}
 
-	if (InternalStateModificationsCounter > 0)
-	{
-		FSM_LOG(Warning, "Impossible to pop a state while modifying internal state.");
-		return false;
-	}
-
 	if (StatesStack.IsEmpty())
 	{
-		FSM_LOG(Warning, "Impossible to pop a state from stack as it's empty.");
+		FSM_LOG(Warning, "Impossible to pop a state from states stack as it's empty.");
 		return false;
 	}
 
-	PopState_Implementation();
+	if (!IsActiveStateDispatchingEvent())
+	{
+		PopState_Implementation();
+	}
+	else
+	{
+		PopState_LatentImplementation();
+	}
+
+	return true;
+}
+
+bool UFiniteStateMachine::EndState()
+{
+	if (!ensure(HasBeenInitialized()))
+	{
+		FSM_LOG(Warning, "Impossible to end a state before initialization.");
+		return false;
+	}
+
+	if (!ActiveState.IsValid())
+	{
+		FSM_LOG(Warning, "Impossible to end a state as there's nothing to end.");
+		return false;
+	}
+
+	if (!IsActiveStateDispatchingEvent())
+	{
+		EndState_Implementation();
+	}
+	else
+	{
+		EndState_LatentImplementation();
+	}
+
 	return true;
 }
 
@@ -549,6 +551,9 @@ TCoroutine<> UFiniteStateMachine::AddAndWaitPendingPushRequest(FFSM_PushRequestH
 	Request.StateClass = InStateClass;
 	Request.Label = Label;
 	Request.ID = Handle.ID;
+
+	FSM_LOG(VeryVerbose, "Add pending push request. ID [%d] State [%s] Label [%s]",
+		Handle.ID, *InStateClass->GetName(), *Label.ToString())
 
 	// Wait until the request is not handled
 	while (true)
@@ -580,24 +585,12 @@ void UFiniteStateMachine::PushState_Pending(FPendingPushRequest Request)
 		return;
 	}
 
-	if (InternalStateModificationsCounter > 0)
+	if (IsInState(Request.StateClass))
 	{
 		return;
 	}
 
-	if (StatesStack.ContainsByPredicate([Request] (const TSubclassOf<UMachineState> StateClass)
-		{
-			return StateClass->IsChildOf(Request.StateClass);
-		}))
-	{
-		return;
-	}
-
-	if (ActiveState.IsValid() &&
-		ActiveState->StatesBlocklist.ContainsByPredicate([Request] (const TSubclassOf<UMachineState> Item)
-		{
-			return Request.StateClass->IsChildOf(Item);
-		}))
+	if (IsTransitionBlockedTo(Request.StateClass))
 	{
 		return;
 	}
@@ -607,13 +600,19 @@ void UFiniteStateMachine::PushState_Pending(FPendingPushRequest Request)
 		return;
 	}
 
+	// Sanity check; Should never happen
+	if (ActiveState.IsValid())
+	{
+		ensure(!ActiveState->IsDispatchingEvent());
+	}
+
+	FSM_LOG(VeryVerbose, "Execute pending push request. ID [%d] State [%s] Label [%s]",
+		Request.ID, *Request.StateClass->GetName(), *Request.Label.ToString())
+
 	// Remove the request from the queue as it's about to get pushed
 	PendingPushRequests.RemoveSingle(FPendingPushRequest(Request.ID));
 
 	{
-		// Make sure that nothing changes our internal state from a OnPendingPushRequestSucceededDelegates' callback
-		FFiniteStateMachineInternalStateModificationCounterWrapper(this);
-
 		// Notify about the success just before executing the pending request
 		const FOnPendingPushRequestSignature* FoundDelegate =
 			OnPendingPushRequestResultDelegates.Find(Request.ID);
@@ -678,24 +677,29 @@ int32 UFiniteStateMachine::StopEveryRunningLabel()
 
 bool UFiniteStateMachine::CancelPushRequest(FFSM_PushRequestHandle Handle)
 {
-	const bool bRemoved = PendingPushRequests.RemoveSingle(FPendingPushRequest(Handle.ID)) == 1;
-	if (bRemoved)
+	const int32 FoundIndex = PendingPushRequests.Find(FPendingPushRequest(Handle.ID));
+	if (FoundIndex == INDEX_NONE)
 	{
-		const FOnPendingPushRequestSignature* FoundDelegate =
-			OnPendingPushRequestResultDelegates.Find(Handle.ID);
-		if (FoundDelegate)
-		{
-			FoundDelegate->Broadcast(EFSM_PendingPushRequestResult::Canceled);
-
-			// Remove the delegates as this one will never be fired anymore
-			OnPendingPushRequestResultDelegates.Remove(Handle.ID);
-		}
-
-		OnPushRequestResultDelegate.Broadcast(Handle.ID, EPushRequestResult::Canceled);
-		return true;
+		return false;
 	}
 
-	return false;
+	const FPendingPushRequest PushRequest = PendingPushRequests[FoundIndex];
+	PendingPushRequests.RemoveAt(FoundIndex);
+
+	FSM_LOG(VeryVerbose, "Cancel pending push request. ID [%d] State [%s] Label [%s]",
+		PushRequest.ID, *PushRequest.StateClass->GetName(), *PushRequest.Label.ToString())
+
+	const FOnPendingPushRequestSignature* FoundDelegate = OnPendingPushRequestResultDelegates.Find(Handle.ID);
+	if (FoundDelegate)
+	{
+		FoundDelegate->Broadcast(EFSM_PendingPushRequestResult::Canceled);
+
+		// Remove the delegates as this one will never be fired anymore
+		OnPendingPushRequestResultDelegates.Remove(Handle.ID);
+	}
+
+	OnPushRequestResultDelegate.Broadcast(Handle.ID, EPushRequestResult::Canceled);
+	return true;
 }
 
 bool UFiniteStateMachine::IsPushRequestPending(FFSM_PushRequestHandle Handle) const
@@ -920,10 +924,10 @@ void UFiniteStateMachine::BeginActiveStates()
 
 	if (ActiveState.IsValid())
 	{
-		ActiveState->OnStateAction(EStateAction::Begin, nullptr);
-
 		const TSubclassOf<UMachineState> StateClass = ActiveState->GetClass();
 		StatesStack.Push(StateClass);
+
+		ActiveState->OnStateAction(EStateAction::Begin, nullptr);
 	}
 
 	bActiveStatesBegan = true;
@@ -969,14 +973,11 @@ UMachineState* UFiniteStateMachine::FindStateChecked(TSubclassOf<UMachineState> 
 void UFiniteStateMachine::GotoState_Implementation(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label,
 	bool bForceEvents)
 {
-	// Disallow to change out state while we're running important code
-	FFiniteStateMachineInternalStateModificationCounterWrapper(this);
-
 	UMachineState* State = FindStateChecked(InStateClass);
 
 	if (ActiveState.IsValid())
 	{
-		// Pop active state from the state stack without notifying the state, as we're not explicitely pushing/popping
+		// Pop active state from the state stack without notifying the state, as we're not explicitly pushing/popping
 		StatesStack.Pop();
 	}
 
@@ -997,7 +998,8 @@ void UFiniteStateMachine::GotoState_Implementation(TSubclassOf<UMachineState> In
 		// Tell the active state the requested label
 		ActiveState->GotoLabel(Label);
 
-		// Tell the state what's happening to it
+		// Tell the state what's happening to it. Note: When forcing events,
+		// UMachineState::OnAddedToStack will be fired even thogh the state is already on the stack
 		ActiveState->OnStateAction(EStateAction::Begin, PreviousStateClass);
 	}
 	else
@@ -1007,20 +1009,25 @@ void UFiniteStateMachine::GotoState_Implementation(TSubclassOf<UMachineState> In
 	}
 }
 
+TCoroutine<> UFiniteStateMachine::GotoState_LatentImplementation(TSubclassOf<UMachineState> InStateClass,
+	FGameplayTag Label, bool bForceEvents)
+{
+	co_await WaitUntilActiveStateEventDispatch();
+	GotoState_Implementation(InStateClass, Label, bForceEvents);
+	bIsRunningLatentRequest = false;
+}
+
 TCoroutine<> UFiniteStateMachine::PushState_Implementation(TSubclassOf<UMachineState> InStateClass,
 	FGameplayTag Label)
 {
 	TSubclassOf<UMachineState> PausedStateClass = nullptr;
 
 	{
-		// Disallow to change our state while we're running important code
-		FFiniteStateMachineInternalStateModificationCounterWrapper(this);
-
 		if (ActiveState.IsValid())
 		{
 			// The current active is paused while it's not the top-most
 			PausedStateClass = ActiveState->GetClass();
-			ActiveState->OnStateAction(EStateAction::Pause);
+			ActiveState->OnStateAction(EStateAction::Pause, InStateClass);
 		}
 
 		// Switch active state
@@ -1034,7 +1041,7 @@ TCoroutine<> UFiniteStateMachine::PushState_Implementation(TSubclassOf<UMachineS
 		ActiveState->GotoLabel(Label);
 
 		// Tell the state what's happening to it
-		ActiveState->OnStateAction(EStateAction::Push);
+		ActiveState->OnStateAction(EStateAction::Push, PausedStateClass);
 	}
 
 	if (ActiveState.IsValid())
@@ -1055,16 +1062,29 @@ TCoroutine<> UFiniteStateMachine::PushState_Implementation(TSubclassOf<UMachineS
 	co_await WaitUntilStateAction(PausedStateClass, EStateAction::Resume);
 }
 
+TCoroutine<> UFiniteStateMachine::PushState_LatentImplementation(TSubclassOf<UMachineState> InStateClass,
+	FGameplayTag Label)
+{
+	co_await WaitUntilActiveStateEventDispatch();
+	co_await PushState_Implementation(InStateClass, Label);
+	bIsRunningLatentRequest = false;
+}
+
 void UFiniteStateMachine::PopState_Implementation()
 {
-	// Disallow to change out state while we're running important code
-	FFiniteStateMachineInternalStateModificationCounterWrapper(this);
+	TSubclassOf<UMachineState> ResumedState = nullptr;
+	const int32 Num = StatesStack.Num();
+	if (Num > 1)
+	{
+		ResumedState = StatesStack.Last(1);
+	}
 
 	// Keep track of the stack
 	StatesStack.Pop();
-	ActiveState->OnStateAction(EStateAction::Pop);
+	const TSubclassOf<UMachineState> PoppedState = ActiveState->StaticClass();
+	ActiveState->OnStateAction(EStateAction::Pop, ResumedState);
 
-	if (StatesStack.IsEmpty())
+	if (!ResumedState)
 	{
 		// Nothing to resume
 		ActiveState = nullptr;
@@ -1077,7 +1097,51 @@ void UFiniteStateMachine::PopState_Implementation()
 	ActiveState = State;
 
 	// Resume the paused state
-	ActiveState->OnStateAction(EStateAction::Resume);
+	ActiveState->OnStateAction(EStateAction::Resume, PoppedState);
+}
+
+TCoroutine<> UFiniteStateMachine::PopState_LatentImplementation()
+{
+	co_await WaitUntilActiveStateEventDispatch();
+	PopState_Implementation();
+	bIsRunningLatentRequest = false;
+}
+
+void UFiniteStateMachine::EndState_Implementation()
+{
+	TSubclassOf<UMachineState> ResumedState = nullptr;
+	const int32 Num = StatesStack.Num();
+	if (Num > 1)
+	{
+		ResumedState = StatesStack.Last(1);
+	}
+
+	// Keep track of the stack
+	StatesStack.Pop();
+	const TSubclassOf<UMachineState> EndedState = ActiveState->StaticClass();
+	ActiveState->OnStateAction(EStateAction::End, ResumedState);
+
+	if (!ResumedState)
+	{
+		// Nothing to resume
+		ActiveState = nullptr;
+		return;
+	}
+
+	// Switch active state
+	const TSubclassOf<UMachineState> StateClass = StatesStack.Top();
+	UMachineState* State = FindStateChecked(StateClass);
+	ActiveState = State;
+
+	// Resume the paused state
+	ActiveState->OnStateAction(EStateAction::Resume, EndedState);
+}
+
+TCoroutine<> UFiniteStateMachine::EndState_LatentImplementation()
+{
+	co_await WaitUntilActiveStateEventDispatch();
+	EndState_Implementation();
+	bIsRunningLatentRequest = false;
 }
 
 TCoroutine<> UFiniteStateMachine::WaitUntilStateAction(TSubclassOf<UMachineState> InStateClass,
@@ -1087,21 +1151,6 @@ TCoroutine<> UFiniteStateMachine::WaitUntilStateAction(TSubclassOf<UMachineState
 	{
 		co_return;
 	}
-
-	// // Wait until the requested state gets the requested state action
-	// auto OnReceived = FSimpleDelegate::CreateLambda([] { });
-	// UMachineState* State = FindStateChecked(InStateClass);
-	// const FDelegateHandle DelegateHandle = State->OnStateActionDelegate.AddWeakLambda(this,
-	// 	[&OnReceived, StateAction] (UMachineState* State, EStateAction InStateAction)
-	// {
-	// 	if (InStateAction == StateAction)
-	// 	{
-	// 		// ReSharper disable once CppExpressionWithoutSideEffects
-	// 		OnReceived.Execute();
-	// 	}
-	// });
-	//
-	// co_await Latent::UntilDelegate(OnReceived);
 
 	// Wait until the requested state gets the requested state action
 	UMachineState* State = FindStateChecked(InStateClass);
@@ -1117,6 +1166,19 @@ TCoroutine<> UFiniteStateMachine::WaitUntilStateAction(TSubclassOf<UMachineState
 	co_await FinishNowIfCanceled();
 }
 
+TCoroutine<> UFiniteStateMachine::WaitUntilActiveStateEventDispatch()
+{
+	ensure(!bIsRunningLatentRequest);
+	check(ActiveState.IsValid());
+
+	ensure(ActiveState->IsDispatchingEvent());
+	bIsRunningLatentRequest = true;
+
+	co_await ActiveState->OnFinishedDispatchingEvent;
+
+	ensure(!ActiveState->IsDispatchingEvent());
+}
+
 void UFiniteStateMachine::ClearStatesInvalidLatentExecutionCancellers()
 {
 	int32 RemovedCancellers = 0;
@@ -1130,4 +1192,37 @@ void UFiniteStateMachine::ClearStatesInvalidLatentExecutionCancellers()
 		FSM_LOG(VeryVerbose, "All [%d] running invalid latent execution cancellers have been cancelled.",
 			RemovedCancellers);
 	}
+}
+
+bool UFiniteStateMachine::IsTransitionBlockedTo(TSubclassOf<UMachineState> InStateClass) const
+{
+	if (!ActiveState.IsValid())
+	{
+		return false;
+	}
+
+	const bool bIsBlocking = ActiveState->StatesBlocklist.ContainsByPredicate(
+		[InStateClass] (const TSubclassOf<UMachineState> Item)
+ 		{
+ 			return InStateClass->IsChildOf(Item);
+ 		});
+
+	return bIsBlocking;
+}
+
+bool UFiniteStateMachine::CanActiveStateSafelyDeactivate(FString& OutReason) const
+{
+	OutReason = "";
+
+	if (!ActiveState.IsValid())
+	{
+		return true;
+	}
+
+	return ActiveState->CanSafelyDeactivate(OUT OutReason);
+}
+
+bool UFiniteStateMachine::IsActiveStateDispatchingEvent() const
+{
+	return ActiveState.IsValid() && ActiveState->IsDispatchingEvent();
 }
