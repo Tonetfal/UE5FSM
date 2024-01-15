@@ -58,6 +58,7 @@ To interact with the stack there are plenty of methods, they're present in both 
 
 ```c++
 bool GotoState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, bool bForceEvents = true);
+bool EndState();
 TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, bool* bOutPrematureResult = nullptr);
 TCoroutine<> PushStateQueued(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, FFSM_PushRequestHandle* OutHandle = nullptr);
 bool PopState();
@@ -79,12 +80,12 @@ depending on the performed action: begin, end, push, pop, resume, pause.
 The signatures:
 
 ```c++
-void UMachineState::OnBegan(TSubclassOf<UMachineState> PreviousState);
+void UMachineState::OnBegan(TSubclassOf<UMachineState> OldState);
 void UMachineState::OnEnded(TSubclassOf<UMachineState> NewState);
-void UMachineState::OnPushed();
-void UMachineState::OnPopped();
-void UMachineState::OnPaused();
-void UMachineState::OnResumed();
+void UMachineState::OnPushed(TSubclassOf<UMachineState> OldState);
+void UMachineState::OnPopped(TSubclassOf<UMachineState> NewState);
+void UMachineState::OnPaused(TSubclassOf<UMachineState> NewState);
+void UMachineState::OnResumed(TSubclassOf<UMachineState> OldState);
 ```
 
 ### OnBegan
@@ -123,27 +124,27 @@ When a state becomes active, or, in other words, it becomes the top-most state o
 called:
 
 ```c++
-void UMachineState::OnActivated();
+void UMachineState::OnActivated(EStateAction StateAction, TSubclassOf<UMachineState> OldState);
 ```
 
 When a state becomes inactive, or, in other words, it's not the top-most state on the stack anymore, yet it's present,
 the following event is called:
 
 ```c++
-void UMachineState::OnDectivated();
+void UMachineState::OnDectivated(EStateAction StateAction, TSubclassOf<UMachineState> NewState);
 ```
 
 When a state is added to the stack, i.e. it either began or got pushed on it, the following event is called:
 
 ```c++
-void UMachineState::OnAddedToStack(EStateAction StateAction);
+void UMachineState::OnAddedToStack(EStateAction StateAction, TSubclassOf<UMachineState> OldState);
 ```
 
 When a state is not present on the stack anymore, i.e. it either ended or got popped out of it, the following event 
 is called:
 
 ```c++
-void UMachineState::OnRemovedFromStack(EStateAction StateAction);
+void UMachineState::OnRemovedFromStack(EStateAction StateAction, TSubclassOf<UMachineState> NewState);
 ```
 
 Any latent code that is running can be terminated at any point outside that code, and even outside the state itself, 
@@ -175,8 +176,8 @@ class UMyMachineState : public UMachineState
 
 protected:
 	//~UMachineState Interface
-	virtual void OnActivated() override;
-	virtual void OnDeactivated() override;
+	virtual void OnActivated(EStateAction StateAction, TSubclassOf<UMachineState> OldState) override;
+	virtual void OnDeactivated(EStateAction StateAction, TSubclassOf<UMachineState> NewState) override;
 	//~End of UMachineState Interface
 	
 protected:
@@ -186,9 +187,9 @@ protected:
 };
 
 
-void UMyMachineState::OnActivated()
+void UMyMachineState::OnActivated(EStateAction StateAction, TSubclassOf<UMachineState> OldState)
 {
-	Super::OnActivated();
+	Super::OnActivated(StateAction, OldState);
 
 	Controller = GetOwnerChecked<AMyController>();
 	Character = Controller->GetPawn<AMyCharacter>();
@@ -197,12 +198,12 @@ void UMyMachineState::OnActivated()
 	check(IsValid(Character));
 }
 
-void UMyMachineState::OnDeactivated()
+void UMyMachineState::OnDeactivated(EStateAction StateAction, TSubclassOf<UMachineState> NewState)
 {
 	Controller.Reset();
 	Character.Reset();
 	GlobalStateData.Reset();
 	
-	Super::OnDeactivated();
+	Super::OnDeactivated(StateAction, NewState);
 }
 ```

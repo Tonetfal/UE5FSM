@@ -29,13 +29,24 @@ Activate a state at a specified label. If there's any active state, it'll deacti
   not.
 - **Return Value** - If true, label has been activated, false otherwise.
 
+### EndState
+
+```c++
+bool EndState();
+```
+
+End the active state. If there's any state below this in the stack, it'll resume its execution.
+
+- **Return Value** - If true, a state has ended, false otherwise.
+
 ### PushState
 
 ```c++
 TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, bool* bOutPrematureResult = nullptr);
 ```
 
-Push a state at a specified label on top of the stack.
+Push a state at a specified label on top of the stack. If there's any active state, it'll be paused upon successful 
+push.
 
 - **InStateClass** - State to push.
 - **Label** - Label to start the state with.
@@ -50,7 +61,7 @@ TCoroutine<> PushStateQueued(FFSM_PushRequestHandle& OutHandle, TSubclassOf<UMac
 
 Push a state at a specified label on top of the stack. If the operation is not possible to execute for
 any reason that might change in the future, it'll queued, and apply it as soon as it becomes possible following
-the existing queue order.
+the existing queue order. If there's any active state, it'll be paused upon successful push.
 
 - **OutHandle** - Output parameter. Push request handle used to interact with the request.
 - **InStateClass** - State to push.
@@ -62,6 +73,49 @@ the existing queue order.
 bool PopState();
 ```
 
-Pop the top-most state from stack.
+Pop the top-most state from stack. If there's any state below this in the stack, it'll resume its execution.
 
 - **Return Value** - If true, a state has been popped, false otherwise.
+
+## Limitations
+
+States stack manipulations is not always possible. The line between the safe and unsafe states lies within a machine 
+state event, such as Begin, End, Push, Pop, Resume, or Pause. In fact, it's allowed to invoke any aforementioned 
+function, but only once, up until it doesn't execute. Examples:
+
+```c++
+void UMyMachineState1::OnBegan(TSubclassOf<UMachineState> OldState)
+{
+    Super::OnBegan(OldState);
+    
+    // It's fine to call one GotoState(), note that it'll start executing once the event is finished
+    GotoState(UMyMachineState2::StaticClass());
+    
+    // These will be ignored! We just requested to manipalute the stack.
+    GotoState(UMyMachineState2::StaticClass());
+    PushState(UMyMachineState3::StaticClass());
+    EndState();
+    PopState();
+    
+    // Note that you're still allowed to use the queued push state as it's a unique action
+	FFSM_PushRequestHandle Handle;
+    PushStateQueued(Handle, UMyMachineState3::StaticClass());
+}
+
+void UMyMachineState1::OnEnded(TSubclassOf<UMachineState> NewState)
+{
+    Super::OnEnded(NewState);
+    
+    // This will be ignored! We have already requested a Goto in UMyMachineState1::OnBegan().
+    GotoState(UMyMachineState2::StaticClass());
+}
+
+void UMyMachineState2::OnBegan(TSubclassOf<UMachineState> OldState)
+{
+    Super::OnBegan(OldState);
+    
+    // This will be ignored! We have already requested a Goto in UMyMachineState1::OnBegan(), and it's about to finish,
+    // as it was requested to Goto this state.
+    GotoState(UMyMachineState3::StaticClass());
+}
+```

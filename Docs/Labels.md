@@ -61,9 +61,9 @@ UMachineState::ActiveLabel, and we're going to override it with our own label. I
 it might be handy.
 
 ```c++
-void UMyMachineState::OnActivated()
+void UMyMachineState::OnActivated(EStateAction StateAction, TSubclassOf<UMachineState> OldState)
 {
-	Super::OnActivated();
+	Super::OnActivated(StateAction, OldState);
 	
 	GOTO_LABEL(MyCoolLabel);
 }
@@ -177,6 +177,12 @@ immediately terminates the label and the state it's called from.
 - **LABEL_NAME** - Part of the label that comes after `TAG_StateMachine_Label_`.
 - **...** - optional bool argument. It's the `bForceEvents` of the `GotoState()`.
 
+### EndState
+
+End the active state. If the call succeeds, this immediately terminates the label and the state it's called from.
+
+`END_STATE()`
+
 ### PushState
 
 Push a state at a specified label on top of the stack. If the call succeeds, this pauses the code execution for the 
@@ -207,21 +213,25 @@ any reason that might change in the future, it'll queued, and apply it as soon a
 the existing queue order. If the call succeeds, this pauses the code execution up until the request is pending, and 
 until this state is inactive.
 
-`PUSH_STATE_QUEUED(STATE_NAME)`
+`PUSH_STATE_QUEUED(HANDLE, STATE_NAME)`
 
+- **HANDLE** - Output parameter. Push request handle (`FFSM_PushRequestHandle`) used to interact with the request.
 - **STATE_NAME** - Name of a state. Can only take non-string text. Example: `UMyMachineState`.
 
-`PUSH_STATE_QUEUED_CLASS(STATE_CLASS)`
+`PUSH_STATE_QUEUED_CLASS(HANDLE, STATE_CLASS)`
 
+- **HANDLE** - Output parameter. Push request handle (`FFSM_PushRequestHandle`) used to interact with the request.
 - **STATE_CLASS** - Class of a state. Can only take objects. Example: `UMyMachineState::StaticClass()`.
 
-`PUSH_STATE_QUEUED_LABEL(STATE_NAME, LABEL_NAME)`
+`PUSH_STATE_QUEUED_LABEL(HANDLE, STATE_NAME, LABEL_NAME)`
 
+- **HANDLE** - Output parameter. Push request handle (`FFSM_PushRequestHandle`) used to interact with the request.
 - **STATE_NAME** - Name of a state. Can only take non-string text. Example: `UMyMachineState`.
 - **LABEL_NAME** - Part of the label that comes after `TAG_StateMachine_Label_`.
 
-`PUSH_STATE_QUEUED_CLASS_LABEL(STATE_CLASS, LABEL_NAME)`
+`PUSH_STATE_QUEUED_CLASS_LABEL(HANDLE, STATE_CLASS, LABEL_NAME)`
 
+- **HANDLE** - Output parameter. Push request handle (`FFSM_PushRequestHandle`) used to interact with the request.
 - **STATE_CLASS** - Class of a state. Can only take objects. Example: `UMyMachineState::StaticClass()`.
 - **LABEL_NAME** - Part of the label that comes after `TAG_StateMachine_Label_`.
 
@@ -259,7 +269,8 @@ TCoroutine<> Label_Default()
 	// The code is going to wait the push result, as long as the arguments were valid, and the pushed state's 
 	// subsequent deactivation. It means that the state might've not been pushed immediately, but it might be at some 
 	// point, for instance, after the active state is changed to something that doesn't prevent the request from executing
-	PUSH_STATE_QUEUED_LABEL(UMyMachineState_Demo, MyCoolLabel);
-	PUSH_STATE_QUEUED_CLASS_LABEL(UMyMachineState_Demo::StaticClass(), MyCoolLabel);
+	FFSM_PushRequestHandle Handle;
+	PUSH_STATE_QUEUED_LABEL(Handle, UMyMachineState_Demo, MyCoolLabel);
+	PUSH_STATE_QUEUED_CLASS_LABEL(Handle, UMyMachineState_Demo::StaticClass(), MyCoolLabel);
 }
 ```
