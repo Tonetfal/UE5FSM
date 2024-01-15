@@ -389,20 +389,29 @@ bool UMachineState::EndState()
 
 bool UMachineState::GotoLabel(FGameplayTag Label)
 {
-	if (!IsLabelTagCorrect(Label))
+	if (Label.IsValid())
 	{
-		FSM_LOG(Warning, "Label [%s] is of wrong tag hierarchy.", *Label.ToString());
-		return false;
+		if (!IsLabelTagCorrect(Label))
+		{
+			FSM_LOG(Warning, "Label [%s] is of wrong tag hierarchy.", *Label.ToString());
+			return false;
+		}
+
+		if (!ContainsLabel(Label))
+		{
+			FSM_LOG(Warning, "Label [%s] is not present in state [%s].", *Label.ToString(), *GetName());
+			return false;
+		}
 	}
 
-	if (!ContainsLabel(Label))
-	{
-		FSM_LOG(Warning, "Label [%s] is not present in state [%s].", *Label.ToString(), *GetName());
-		return false;
-	}
-
+	// Don't try to activate an empty label. If it's empty, it means that no label should be running
+	bLabelActivated = !Label.IsValid();
 	ActiveLabel = Label;
-	bLabelActivated = false;
+
+	// Stop any latent code within a potential old label
+	StopLatentExecution_Implementation();
+	StopRunningLabels();
+
 	return true;
 }
 
