@@ -382,6 +382,11 @@ bool UMachineState::GotoState(TSubclassOf<UMachineState> InStateClass, FGameplay
 	return StateMachine->GotoState(InStateClass, Label, bForceEvents);
 }
 
+bool UMachineState::EndState()
+{
+	return StateMachine->EndState();
+}
+
 bool UMachineState::GotoLabel(FGameplayTag Label)
 {
 	if (!IsLabelTagCorrect(Label))

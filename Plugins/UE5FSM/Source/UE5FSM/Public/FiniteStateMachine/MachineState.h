@@ -427,6 +427,15 @@ public:
 		bool bForceEvents = true);
 
 	/**
+	 * End the active state. If there's any state below this in the stack, it'll resume its execution.
+	 * @return	If true, a state has ended, false otherwise.
+	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
+	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
+	 * EndState).
+	 */
+	bool EndState();
+
+	/**
 	 * Go to a label using the active state.
 	 * @param	Label label to go to.
 	 * @return	If true, label has been activated, false otherwise.
