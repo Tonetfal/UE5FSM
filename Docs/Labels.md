@@ -21,7 +21,7 @@ UMyMachineState::UMyMachineState()
 	// Other labels...
 }
 
-TCoroutine<> UMyMachineState::Label_MyCoolLabel()
+UE5Coro::TCoroutine<> UMyMachineState::Label_MyCoolLabel()
 {
 	// Something...
 }
@@ -92,7 +92,7 @@ GOTO_LABEL(LABEL_NAME)
 Like other macros, all you have to do is specify the final bit of the gameplay tag like this
 
 ```c++
-TCoroutine<> Label_Default()
+UE5Coro::TCoroutine<> Label_Default()
 {
 	// If the GotoLabel will success this label is going to terminate immediately
 	GOTO_LABEL(MyCoolLabel);
@@ -113,7 +113,7 @@ The function **must** be [co_awaitable](https://github.com/landelare/ue5coro/blo
 This is how you can make a simple label:
 
 ```c++
-TCoroutine<> UPatrolState::Label_Default()
+UE5Coro::TCoroutine<> UPatrolState::Label_Default()
 {
 	while (true)
 	{
@@ -255,7 +255,7 @@ from.
 ### Examples
 
 ```c++
-TCoroutine<> Label_Default()
+UE5Coro::TCoroutine<> Label_Default()
 {
 	// If the GotoState will success this label is going to terminate immediately
 	GOTO_STATE_LABEL(UMyMachineState_Demo, MyCoolLabel);

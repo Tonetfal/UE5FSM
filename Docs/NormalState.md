@@ -59,8 +59,8 @@ To interact with the stack there are plenty of methods, they're present in both 
 ```c++
 bool GotoState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, bool bForceEvents = true);
 bool EndState();
-TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, bool* bOutPrematureResult = nullptr);
-TCoroutine<> PushStateQueued(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, FFSM_PushRequestHandle* OutHandle = nullptr);
+UE5Coro::TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, bool* bOutPrematureResult = nullptr);
+UE5Coro::TCoroutine<> PushStateQueued(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, FFSM_PushRequestHandle* OutHandle = nullptr);
 bool PopState();
 ```
 
@@ -207,3 +207,5 @@ void UMyMachineState::OnDeactivated(EStateAction StateAction, TSubclassOf<UMachi
 	Super::OnDeactivated(StateAction, NewState);
 }
 ```
+
+When creating your own machine states, make use of `using namespace UE5Coro` to shorthand many expressions.

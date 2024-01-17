@@ -42,7 +42,7 @@ End the active state. If there's any state below this in the stack, it'll resume
 ### PushState
 
 ```c++
-TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, bool* bOutPrematureResult = nullptr);
+UE5Coro::TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default, bool* bOutPrematureResult = nullptr);
 ```
 
 Push a state at a specified label on top of the stack. If there's any active state, it'll be paused upon successful 
@@ -56,7 +56,7 @@ push.
 ### PushStateQueued
 
 ```c++
-TCoroutine<> PushStateQueued(FFSM_PushRequestHandle& OutHandle, TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default);
+UE5Coro::TCoroutine<> PushStateQueued(FFSM_PushRequestHandle& OutHandle, TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default);
 ```
 
 Push a state at a specified label on top of the stack. If the operation is not possible to execute for

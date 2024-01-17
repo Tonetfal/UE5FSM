@@ -28,6 +28,8 @@ Read more the plugin in the [documentation](Docs) and in the source code, as it'
 Take a look at how you can make a simple AI that can walk to a target and attack it.
 
 ```c++
+using namespace UE5Coro;
+
 UCLASS()
 class AMyAIController : public AAIController
 {
