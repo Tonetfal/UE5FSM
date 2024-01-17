@@ -7,7 +7,7 @@
 /**
  *
  */
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_ExternalPushTest
 	: public UMachineState_Test
 {
@@ -27,7 +27,7 @@ protected:
 	TSubclassOf<UMachineState_ExternalPushTest> StateToPush = nullptr;
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_ExternalPushTest3
 	: public UMachineState_ExternalPushTest
 {
@@ -40,7 +40,7 @@ public:
 	}
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_ExternalPushTest2
 	: public UMachineState_ExternalPushTest
 {
@@ -53,7 +53,7 @@ public:
 	}
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_ExternalPushTest1
 	: public UMachineState_ExternalPushTest
 {

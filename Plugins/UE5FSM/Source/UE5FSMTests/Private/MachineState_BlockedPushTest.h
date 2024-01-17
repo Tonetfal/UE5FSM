@@ -4,7 +4,7 @@
 
 #include "MachineState_BlockedPushTest.generated.h"
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_BlockedPushTest
 	: public UMachineState_Test
 {
@@ -14,7 +14,7 @@ public:
 
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_BlockedPushTest5
 	: public UMachineState_BlockedPushTest
 {
@@ -26,7 +26,7 @@ public:
 	}
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_BlockedPushTest4
 	: public UMachineState_BlockedPushTest
 {
@@ -39,7 +39,7 @@ public:
 	}
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_BlockedPushTest2
 	: public UMachineState_BlockedPushTest
 {
@@ -53,7 +53,7 @@ public:
 	}
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_BlockedPushTest1
 	: public UMachineState_BlockedPushTest
 {
@@ -66,7 +66,7 @@ public:
 	}
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_BlockedPushTest3
 	: public UMachineState_BlockedPushTest
 {

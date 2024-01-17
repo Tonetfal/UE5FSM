@@ -4,7 +4,7 @@
 
 #include "MachineState_LatentActions.generated.h"
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_LatentActions1
 	: public UMachineState_Test
 {
@@ -16,7 +16,7 @@ protected:
 	//~End of UMachineState_Test Interface
 };
 
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_LatentActions2
 	: public UMachineState_Test
 {

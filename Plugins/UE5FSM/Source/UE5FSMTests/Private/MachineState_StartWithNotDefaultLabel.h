@@ -7,7 +7,7 @@
 /**
  *
  */
-UCLASS()
+UCLASS(Hidden)
 class UMachineState_StartWithNotDefaultLabel
 	: public UMachineState_Test
 {
