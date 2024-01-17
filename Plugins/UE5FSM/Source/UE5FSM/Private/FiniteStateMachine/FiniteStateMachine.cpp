@@ -5,6 +5,8 @@
 #include "FiniteStateMachine/MachineStateData.h"
 #include "GameFramework/PlayerState.h"
 
+using namespace UE5Coro;
+
 void FFSM_PushRequestHandle::BindOnResultCallback(const FOnPendingPushRequestSignature::FDelegate&& Callback) const
 {
 	if (StateMachine.IsValid())

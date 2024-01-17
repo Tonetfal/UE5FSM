@@ -6,7 +6,6 @@
 #include "NativeGameplayTags.h"
 #include "UE5Coro.h"
 #include "UE5CoroAI.h"
-#include "UObject/Object.h"
 
 #include "MachineState.generated.h"
 
@@ -14,8 +13,6 @@ class UFiniteStateMachine;
 class UMachineStateData;
 struct FFSM_PushRequestHandle;
 struct FMS_IsDispatchingEventManager;
-
-using namespace UE5Coro;
 
 /** Label tag associated with the default label the states start with if not told otherwise. */
 UE5FSM_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Default);
@@ -156,7 +153,7 @@ public:
 
 public:
 	DECLARE_DELEGATE_RetVal(
-		TCoroutine<>, FLabelSignature);
+		UE5Coro::TCoroutine<>, FLabelSignature);
 
 	DECLARE_MULTICAST_DELEGATE_TwoParams(
 		FOnStateActionSignature,
@@ -387,7 +384,7 @@ protected:
 	/**
 	 * Default label the state starts with, if not told otherwise.
 	 */
-	virtual TCoroutine<> Label_Default();
+	virtual UE5Coro::TCoroutine<> Label_Default();
 #pragma endregion
 
 	/**
@@ -403,10 +400,10 @@ protected:
 	 * @see		LIFT()
 	 */
 	template<typename TFunction, typename... TArgs>
-	TCoroutine<> RunLatentExecution(TFunction Function, TArgs&&... Args);
+	UE5Coro::TCoroutine<> RunLatentExecution(TFunction Function, TArgs&&... Args);
 
 	template<typename TFunction, typename... TArgs>
-	TCoroutine<> RunLatentExecutionExt(TFunction Function, FString DebugInfo, TArgs&&... Args);
+	UE5Coro::TCoroutine<> RunLatentExecutionExt(TFunction Function, FString DebugInfo, TArgs&&... Args);
 
 private:
 	FString GetDebugString(const FString& RunLatentExecutionExt) const;
@@ -450,8 +447,8 @@ public:
 	 * @param	bOutPrematureResult output parameter. Boolean to use when you want to use the function result before it
 	 * returns code execution order.
 	 */
-	TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default,
-		bool* bOutPrematureResult = nullptr);
+	UE5Coro::TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass,
+		FGameplayTag Label = TAG_StateMachine_Label_Default, bool* bOutPrematureResult = nullptr);
 
 	/**
 	 * Push a state at a specified label on top of the stack. If the operation is not possible to execute for
@@ -461,7 +458,7 @@ public:
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state at.
 	 */
-	TCoroutine<> PushStateQueued(FFSM_PushRequestHandle& OutHandle,
+	UE5Coro::TCoroutine<> PushStateQueued(FFSM_PushRequestHandle& OutHandle,
 		TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default);
 
 	/**
@@ -581,7 +578,7 @@ private:
 	bool bLabelActivated = false;
 
 	/** Handles associated with the coroutines used by this state. */
-	TArray<TPair<TCoroutine<>, FString>> RunningLabels;
+	TArray<TPair<UE5Coro::TCoroutine<>, FString>> RunningLabels;
 
 	/**
 	 * If true, active label is being activated, false otherwise.
@@ -606,13 +603,13 @@ private:
 };
 
 template<typename TFunction, typename... TArgs>
-TCoroutine<> UMachineState::RunLatentExecution(TFunction Function, TArgs&&... Args)
+UE5Coro::TCoroutine<> UMachineState::RunLatentExecution(TFunction Function, TArgs&&... Args)
 {
 	return RunLatentExecutionExt(Function, "", Forward<TArgs>(Args)...);
 }
 
 template<typename TFunction, typename ... TArgs>
-TCoroutine<> UMachineState::RunLatentExecutionExt(TFunction Function, FString DebugInfo, TArgs&&... Args)
+UE5Coro::TCoroutine<> UMachineState::RunLatentExecutionExt(TFunction Function, FString DebugInfo, TArgs&&... Args)
 {
 	// Wrap this coroutine in a custom way to support custom cancellation
 	FLatentExecution& LatentExecutionWrapper = RunningLatentExecutions.AddDefaulted_GetRef();
@@ -625,16 +622,16 @@ TCoroutine<> UMachineState::RunLatentExecutionExt(TFunction Function, FString De
 #endif
 
 	// Allow user to cancel an awaiter
-	auto Cancelling = Latent::UntilDelegate(LatentExecutionWrapper.CancelDelegate);
+	auto Cancelling = UE5Coro::Latent::UntilDelegate(LatentExecutionWrapper.CancelDelegate);
 
 	// Create the asked awaiter
 	auto LatentExecution = Function(Forward<TArgs>(Args)...);
 
 	// Wait until either the latent execution terminates or we're explicitly cancelled
-	co_await WhenAny(MoveTemp(LatentExecution), MoveTemp(Cancelling));
+	co_await UE5Coro::WhenAny(MoveTemp(LatentExecution), MoveTemp(Cancelling));
 
 	// Wait until the state becomes active (if not already) or invalid
-	co_await Latent::Until([this]
+	co_await UE5Coro::Latent::Until([this]
 	{
 		if (!IsStateValid())
 		{
@@ -644,7 +641,7 @@ TCoroutine<> UMachineState::RunLatentExecutionExt(TFunction Function, FString De
 		return IsStateActive();
 	});
 
-	co_await FinishNowIfCanceled();
+	co_await UE5Coro::FinishNowIfCanceled();
 }
 
 template<typename T>

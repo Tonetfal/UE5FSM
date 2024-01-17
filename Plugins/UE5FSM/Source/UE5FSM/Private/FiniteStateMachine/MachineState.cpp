@@ -5,6 +5,8 @@
 #include "FiniteStateMachine/MachineStateData.h"
 #include "NativeGameplayTags.h"
 
+using namespace UE5Coro;
+
 UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_StateMachine_Label, "StateMachine.Label");
 UE_DEFINE_GAMEPLAY_TAG(TAG_StateMachine_Label_Default, "StateMachine.Label.Default");
 

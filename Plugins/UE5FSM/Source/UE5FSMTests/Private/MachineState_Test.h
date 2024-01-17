@@ -4,6 +4,8 @@
 
 #include "MachineState_Test.generated.h"
 
+using namespace UE5Coro;
+
 struct FStateMachineTestMessage { TSubclassOf<UMachineState> Class; FString Message; bool bSuccess; };
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMachineMessage, FStateMachineTestMessage);
 

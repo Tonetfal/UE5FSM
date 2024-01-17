@@ -5,8 +5,6 @@
 
 #include "FiniteStateMachine.generated.h"
 
-using namespace UE5Coro;
-
 UE5FSM_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Default);
 
 UENUM()
@@ -197,8 +195,8 @@ public:
 	 * @param	bOutPrematureResult output parameter. Boolean to use when you want to use the function result before it
 	 * returns code execution.
 	 */
-	TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default,
-		bool* bOutPrematureResult = nullptr);
+	UE5Coro::TCoroutine<> PushState(TSubclassOf<UMachineState> InStateClass,
+		FGameplayTag Label = TAG_StateMachine_Label_Default, bool* bOutPrematureResult = nullptr);
 
 	/**
 	 * Push a state at a specified label on top of the stack. If the operation is not possible to execute for
@@ -208,7 +206,7 @@ public:
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state at.
 	 */
-	TCoroutine<> PushStateQueued(FFSM_PushRequestHandle& OutHandle, TSubclassOf<UMachineState> InStateClass,
+	UE5Coro::TCoroutine<> PushStateQueued(FFSM_PushRequestHandle& OutHandle, TSubclassOf<UMachineState> InStateClass,
 		FGameplayTag Label = TAG_StateMachine_Label_Default);
 
 	/**
@@ -439,7 +437,7 @@ private:
 	 * otherwise do not.
 	 */
 	void GotoState_Implementation(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label, bool bForceEvents);
-	TCoroutine<> GotoState_LatentImplementation(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label,
+	UE5Coro::TCoroutine<> GotoState_LatentImplementation(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label,
 		bool bForceEvents);
 
 	/**
@@ -447,34 +445,34 @@ private:
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state at.
 	 */
-	TCoroutine<> PushState_Implementation(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label);
-	TCoroutine<> PushState_LatentImplementation(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label);
+	UE5Coro::TCoroutine<> PushState_Implementation(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label);
+	UE5Coro::TCoroutine<> PushState_LatentImplementation(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label);
 
 	/**
 	 * Pop the top-most state from stack. Doesn't perform any check.
 	 * @return	If true, a state has been popped, false otherwise.
 	 */
 	void PopState_Implementation();
-	TCoroutine<> PopState_LatentImplementation();
+	UE5Coro::TCoroutine<> PopState_LatentImplementation();
 
 	/**
 	 * End the active state. Doesn't perform any check.
 	 * @return	If true, a state has ended, false otherwise.
 	 */
 	void EndState_Implementation();
-	TCoroutine<> EndState_LatentImplementation();
+	UE5Coro::TCoroutine<> EndState_LatentImplementation();
 
 	/**
 	 * Wait until a specified state gets a specified state action.
 	 * @param	InStateClass state which state action to wait.
 	 * @param	StateAction state action to wait.
 	 */
-	TCoroutine<> WaitUntilStateAction(TSubclassOf<UMachineState> InStateClass, EStateAction StateAction) const;
+	UE5Coro::TCoroutine<> WaitUntilStateAction(TSubclassOf<UMachineState> InStateClass, EStateAction StateAction) const;
 
 	/**
 	 * Wait until the active state dispatches an event that it is *currently* dispatching.
 	 */
-	TCoroutine<> WaitUntilActiveStateEventDispatch();
+	UE5Coro::TCoroutine<> WaitUntilActiveStateEventDispatch();
 
 	/**
 	 * Push a request in the queue
@@ -482,7 +480,7 @@ private:
 	 * @param	InStateClass state to push.
 	 * @param	Label label to start the state at.
 	 */
-	TCoroutine<> AddAndWaitPendingPushRequest(FFSM_PushRequestHandle& OutHandle,
+	UE5Coro::TCoroutine<> AddAndWaitPendingPushRequest(FFSM_PushRequestHandle& OutHandle,
 		TSubclassOf<UMachineState> InStateClass, FGameplayTag Label);
 
 	/**
