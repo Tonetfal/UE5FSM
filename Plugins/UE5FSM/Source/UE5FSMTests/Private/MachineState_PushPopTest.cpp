@@ -1,6 +1,6 @@
 #include "MachineState_PushPopTest.h"
 
-UE_DEFINE_GAMEPLAY_TAG(TAG_StateMachine_Label_Test, "StateMachine.Label.Test");
+#include "UE5FSMModule.h"
 
 UMachineState_PushPopTest::UMachineState_PushPopTest()
 {

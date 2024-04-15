@@ -164,6 +164,10 @@ public:
 	UMachineState();
 	virtual ~UMachineState() override;
 
+	//~UObject Interface
+	virtual UWorld* GetWorld() const override;
+	//~End of UObject Interface
+
 	/**
 	 * Check whether the state is valid or not.
 	 * @return 	If true, the state has been or being destroyed, false otherwise.
@@ -273,6 +277,82 @@ protected:
 	 * @see		UMachineState::OnEnded, UMachineState::Popped
 	 */
 	virtual void OnRemovedFromStack(EStateAction StateAction, TSubclassOf<UMachineState> NewState);
+
+	/**
+	 * Called when state starts the execution.
+	 */
+	UFUNCTION(BlueprintImplementableEvent, DisplayName="On Began")
+	void K2_OnBegan(TSubclassOf<UMachineState> OldState);
+
+	/**
+	 * Called when state terminates the execution.
+	 */
+	UFUNCTION(BlueprintImplementableEvent, DisplayName="On Ended")
+	void K2_OnEnded(TSubclassOf<UMachineState> NewState);
+
+	/**
+	 * Called when state gets pushed to the state stack.
+	 * @note	When state is pushed, Begin is not called.
+	 */
+	UFUNCTION(BlueprintImplementableEvent, DisplayName="On Pushed")
+	void K2_OnPushed(TSubclassOf<UMachineState> OldState);
+
+	/**
+	 * Called when state gets pushed to the state stack.
+	 * @note	When state is pushed, Begin is not called.
+	 */
+	UFUNCTION(BlueprintImplementableEvent, DisplayName="On Popped")
+	void K2_OnPopped(TSubclassOf<UMachineState> NewState);
+
+	/**
+	 * Called when another state got popped from the stack, leaving us be the top-most one.
+	 */
+	UFUNCTION(BlueprintImplementableEvent, DisplayName="On Resumed")
+	void K2_OnResumed(TSubclassOf<UMachineState> OldState);
+
+	/**
+	 * Called when another state got pushed when we were the top-most one.
+	 */
+	UFUNCTION(BlueprintImplementableEvent, DisplayName="On Paused")
+	void K2_OnPaused(TSubclassOf<UMachineState> NewState);
+
+	/**
+	 * Called when the state becomes active, or, in other words, it becomes the top-most state on the stack.
+	 * It's either just started or got resumed.
+	 * @param	StateAction state action this function was called due.
+	 * @param	OldState state that was active before this one was activated.
+	 * @see		UMachineState::OnBegan, UMachineState::OnPushed, UMachineState::OnResumed
+	 */
+	UFUNCTION(BlueprintImplementableEvent, DisplayName="On Activated")
+	void K2_OnActivated(EStateAction StateAction, TSubclassOf<UMachineState> OldState);
+
+	/**
+	 * Called when the state becomes inactive, or, in other words, it's not the top-most state on the stack anymore,
+	 * yet it's present. It's either not present on the stack anymore or got paused.
+	 * @param	StateAction state action this function was called due.
+	 * @param	NewState state that got activated after this one got deactivated.
+	 * @see		UMachineState::OnEnded, UMachineState::OnPopped, UMachineState::OnPaused
+	 */
+	UFUNCTION(BlueprintImplementableEvent, DisplayName="On Deactivated")
+	void K2_OnDeactivated(EStateAction StateAction, TSubclassOf<UMachineState> NewState);
+
+	/**
+	 * Called when the state is added to the stack, i.e. it either began or got pushed on it.
+	 * @param	StateAction state action this function was called due.
+	 * @param	OldState state that this one was added upon.
+	 * @see		UMachineState::OnBegan, UMachineState::OnPushed
+	 */
+	UFUNCTION(BlueprintImplementableEvent, DisplayName="On Added To Stack")
+	void K2_OnAddedToStack(EStateAction StateAction, TSubclassOf<UMachineState> OldState);
+
+	/**
+	 * Called when the state is not present on the stack anymore, i.e. it either ended or got popped out of it.
+	 * @param	StateAction state action this function was called due.
+	 * @param	NewState state that got activated after this one got deactivated.
+	 * @see		UMachineState::OnEnded, UMachineState::Popped
+	 */
+	UFUNCTION(BlueprintImplementableEvent, DisplayName="On Removed From Stack")
+	void K2_OnRemovedFromStack(EStateAction StateAction, TSubclassOf<UMachineState> NewState);
 #pragma endregion
 
 protected:
@@ -565,6 +645,7 @@ protected:
 	TObjectPtr<UMachineStateData> BaseStateData = nullptr;
 
 	/** Finite state machine we're managed by. */
+	UPROPERTY(BlueprintReadOnly, Category="Machine State")
 	TWeakObjectPtr<UFiniteStateMachine> StateMachine = nullptr;
 
 	/** Label we are currently in. */

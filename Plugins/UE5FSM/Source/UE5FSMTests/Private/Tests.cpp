@@ -1,4 +1,5 @@
-#include "Editor.h"
+#if WITH_EDITOR
+
 #include "FiniteStateMachine/FiniteStateMachine.h"
 #include "FiniteStateMachineTestObject.h"
 #include "MachineState_BlockedPushTest.h"
@@ -12,6 +13,7 @@
 #include "Misc/AutomationTest.h"
 #include "Tests/AutomationCommon.h"
 #include "Tests/AutomationEditorCommon.h"
+#include "UE5FSMModule.h"
 
 #define LATENT_TEST_TRUE(What, Value)\
 	if (!Test->TestTrue(What, Value))\
@@ -1190,3 +1192,5 @@ bool FFiniteStateMachineClearStackTest::RunTest(const FString& Parameters)
 
 	return true;
 }
+
+#endif

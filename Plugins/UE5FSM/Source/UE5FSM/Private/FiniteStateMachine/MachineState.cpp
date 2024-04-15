@@ -56,6 +56,17 @@ UMachineState::~UMachineState()
 	StopLatentExecution_Implementation();
 }
 
+UWorld* UMachineState::GetWorld() const
+{
+	const UObject* MyOuter = GetOuter();
+	if (IsValid(MyOuter))
+	{
+		return MyOuter->GetWorld();
+	}
+
+	return nullptr;
+}
+
 bool UMachineState::IsStateValid() const
 {
 	return IsValid(this) && !bIsDestroyed;
@@ -91,6 +102,7 @@ void UMachineState::OnBegan(TSubclassOf<UMachineState> OldState)
 {
 	OnAddedToStack(EStateAction::Begin, OldState);
 	OnActivated(EStateAction::Begin, OldState);
+	K2_OnBegan(OldState);
 }
 
 void UMachineState::OnEnded(TSubclassOf<UMachineState> NewState)
@@ -103,43 +115,48 @@ void UMachineState::OnEnded(TSubclassOf<UMachineState> NewState)
 	}
 
 	OnRemovedFromStack(EStateAction::End, NewState);
+	K2_OnEnded(NewState);
 }
 
 void UMachineState::OnPushed(TSubclassOf<UMachineState> OldState)
 {
 	OnAddedToStack(EStateAction::Push, OldState);
 	OnActivated(EStateAction::Push, OldState);
+	K2_OnPushed(OldState);
 }
 
 void UMachineState::OnPopped(TSubclassOf<UMachineState> NewState)
 {
 	OnDeactivated(EStateAction::Pop, NewState);
 	OnRemovedFromStack(EStateAction::Pop, NewState);
+	K2_OnPopped(NewState);
 }
 
 void UMachineState::OnResumed(TSubclassOf<UMachineState> OldState)
 {
 	OnActivated(EStateAction::Resume, OldState);
+	K2_OnResumed(OldState);
 }
 
 void UMachineState::OnPaused(TSubclassOf<UMachineState> NewState)
 {
 	OnDeactivated(EStateAction::Pause, NewState);
+	K2_OnPaused(NewState);
 }
 
 void UMachineState::OnActivated(EStateAction StateAction, TSubclassOf<UMachineState> OldState)
 {
-	// Empty
+	K2_OnActivated(StateAction, OldState);
 }
 
 void UMachineState::OnDeactivated(EStateAction StateAction, TSubclassOf<UMachineState> NewState)
 {
-	// Empty
+	K2_OnDeactivated(StateAction, NewState);
 }
 
 void UMachineState::OnAddedToStack(EStateAction StateAction, TSubclassOf<UMachineState> OldState)
 {
-	// Empty
+	K2_OnAddedToStack(StateAction, OldState);
 }
 
 void UMachineState::OnRemovedFromStack(EStateAction StateAction, TSubclassOf<UMachineState> NewState)
@@ -270,7 +287,7 @@ int32 UMachineState::StopLatentExecution_Implementation()
 
 bool UMachineState::IsStateActive() const
 {
-	return StateMachine->IsInState(GetClass());
+	return StateMachine.IsValid() && StateMachine->IsInState(GetClass());
 }
 
 void UMachineState::Tick(float DeltaSeconds)

@@ -6,7 +6,13 @@
 
 using namespace UE5Coro;
 
-struct FStateMachineTestMessage { TSubclassOf<UMachineState> Class; FString Message; bool bSuccess; };
+struct FStateMachineTestMessage
+{
+	TSubclassOf<UMachineState> Class;
+	FString Message;
+	bool bSuccess;
+};
+
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMachineMessage, FStateMachineTestMessage);
 
 #define BROADCAST_TEST_MESSAGE(MESSAGE, SUCCESS) OnMessageDelegate.Broadcast({ GetClass(), MESSAGE, SUCCESS })
@@ -78,4 +84,3 @@ class UMachineState_Test3
 {
 	GENERATED_BODY()
 };
-

@@ -4,8 +4,6 @@
 
 #include "MachineState_PushPopTest.generated.h"
 
-UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Test);
-
 UCLASS(Abstract, Hidden)
 class UMachineState_PushPopTest
 	: public UMachineState_Test

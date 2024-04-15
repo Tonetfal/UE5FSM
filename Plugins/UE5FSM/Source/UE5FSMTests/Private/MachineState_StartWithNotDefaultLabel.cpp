@@ -1,6 +1,7 @@
 #include "MachineState_StartWithNotDefaultLabel.h"
 
 #include "MachineState_PushPopTest.h"
+#include "UE5FSMModule.h"
 
 UMachineState_StartWithNotDefaultLabel::UMachineState_StartWithNotDefaultLabel()
 {

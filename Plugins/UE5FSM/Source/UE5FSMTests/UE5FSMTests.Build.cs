@@ -15,8 +15,17 @@ public class UE5FSMTests : ModuleRules
                 "GameplayTags",
                 "UE5Coro",
                 "UE5FSM",
-                "UnrealEd",
             }
         );
+
+		if (Target.Type == TargetType.Editor)
+		{
+			PrivateDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"UnrealEd",
+				}
+			);
+		}
     }
 }

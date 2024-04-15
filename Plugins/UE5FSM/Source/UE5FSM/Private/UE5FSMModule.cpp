@@ -5,6 +5,8 @@
 
 #define LOCTEXT_NAMESPACE "FUE5FSMModule"
 
+UE_DEFINE_GAMEPLAY_TAG(TAG_StateMachine_Label_Test, "StateMachine.Label.Test");
+
 const static FName DebuggerCategoryName = "UE5FSM";
 
 void FUE5FSMModule::StartupModule()
