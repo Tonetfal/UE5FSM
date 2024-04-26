@@ -1,6 +1,6 @@
 #include "FiniteStateMachine/Debug/GameplayDebuggerCategory_UE5FSM.h"
 
-#if WITH_UE5FSM_DEBUGGER
+#ifdef WITH_UE5FSM_DEBUGGER
 
 #include "Engine/Canvas.h"
 #include "FiniteStateMachine/FiniteStateMachine.h"

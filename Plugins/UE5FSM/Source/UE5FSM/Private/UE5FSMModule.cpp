@@ -11,7 +11,7 @@ const static FName DebuggerCategoryName = "UE5FSM";
 
 void FUE5FSMModule::StartupModule()
 {
-#if WITH_UE5FSM_DEBUGGER
+#ifdef WITH_UE5FSM_DEBUGGER
 	const auto* CategoryInstance = &FGameplayDebuggerCategory_UE5FSM::MakeInstance;
 	const auto Category = IGameplayDebugger::FOnGetCategory::CreateStatic(CategoryInstance);
 
@@ -24,7 +24,7 @@ void FUE5FSMModule::StartupModule()
 
 void FUE5FSMModule::ShutdownModule()
 {
-#if WITH_UE5FSM_DEBUGGER
+#ifdef WITH_UE5FSM_DEBUGGER
 	IGameplayDebugger& GameplayDebuggerModule = IGameplayDebugger::Get();
 	GameplayDebuggerModule.UnregisterCategory(DebuggerCategoryName);
 #endif
