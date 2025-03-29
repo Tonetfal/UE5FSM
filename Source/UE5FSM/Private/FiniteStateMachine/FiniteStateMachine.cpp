@@ -903,10 +903,10 @@ TArray<UFiniteStateMachine::FDebugStateAction> UFiniteStateMachine::GetLastState
 {
 	TArray<FDebugStateAction> ReturnValue;
 
-	auto Deque = LastStateActionsStack._Get_container();
-	for (auto It = Deque.rbegin(); It != Deque.rend(); ++It)
+	const int32 Num = LastStateActionsStack.Num();
+	for (int32 i = Num - 1; i >= 0; i--)
 	{
-		ReturnValue.Add(*It);
+		ReturnValue.Add(LastStateActionsStack[i]);
 	}
 
 	return ReturnValue;
@@ -922,13 +922,13 @@ void UFiniteStateMachine::OnStateAction(UMachineState* State, EStateAction State
 	Action.ActionTime = GetWorld()->GetTimeSeconds();
 
 	// Save the action for debug purposes
-	LastStateActionsStack.push(Action);
+	LastStateActionsStack.Add(Action);
 
 	// Don't store too many entries; a hundred should be more than enough
 	constexpr int32 MaxSize = 100;
-	while (LastStateActionsStack.size() > MaxSize)
+	if (LastStateActionsStack.Num() > MaxSize)
 	{
-		LastStateActionsStack.pop();
+		LastStateActionsStack.RemoveAt(0);
 	}
 #endif
 

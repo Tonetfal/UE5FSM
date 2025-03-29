@@ -574,7 +574,7 @@ private:
 
 #ifdef WITH_EDITOR
 	/** Container of all states that performed an action. It exists for debug purposes only. */
-	std::queue<FDebugStateAction> LastStateActionsStack;
+	TArray<FDebugStateAction> LastStateActionsStack;
 #endif
 
 	/** Queue for the pending push requests that failed to happen. Only the very first entry is tried to be pushed. */
