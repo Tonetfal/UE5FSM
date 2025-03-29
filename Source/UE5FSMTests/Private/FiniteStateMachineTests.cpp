@@ -1,4 +1,6 @@
-﻿#include "Modules/ModuleManager.h"
+﻿// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
+#include "Modules/ModuleManager.h"
 
 class FFiniteStateMachineTests
 	: public IModuleInterface

@@ -1,3 +1,5 @@
+// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
 #include "FiniteStateMachine/Debug/GameplayDebuggerCategory_UE5FSM.h"
 
 #ifdef WITH_UE5FSM_DEBUGGER

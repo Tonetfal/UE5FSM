@@ -1,3 +1,5 @@
+// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
 #include "MachineState_LatentTest.h"
 
 #include "MachineState_Test.h"

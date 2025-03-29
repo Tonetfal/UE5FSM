@@ -1,4 +1,6 @@
-﻿using UnrealBuildTool;
+﻿// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
+using UnrealBuildTool;
 
 public class UE5FSMTests : ModuleRules
 {

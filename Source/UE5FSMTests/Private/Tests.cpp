@@ -1,3 +1,5 @@
+// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
 #if WITH_EDITOR
 
 #include "FiniteStateMachine/FiniteStateMachine.h"

@@ -1,5 +1,6 @@
-﻿#include "MachineState_LatentActions.h"
+﻿// Author: Antonio Sidenko (Tonetfal). All rights reserved.
 
+#include "MachineState_LatentActions.h"
 
 void UMachineState_LatentActions1::OnBegan(TSubclassOf<UMachineState> OldState)
 {

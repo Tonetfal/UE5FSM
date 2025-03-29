@@ -1,3 +1,5 @@
+// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
 #include "MachineState_ExternalPushPopTest.h"
 
 TCoroutine<> UMachineState_ExternalPushPopTest::Label_Default()

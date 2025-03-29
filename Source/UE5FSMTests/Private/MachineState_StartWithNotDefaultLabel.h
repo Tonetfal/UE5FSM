@@ -1,12 +1,11 @@
+// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
 #pragma once
 
 #include "MachineState_Test.h"
 
 #include "MachineState_StartWithNotDefaultLabel.generated.h"
 
-/**
- *
- */
 UCLASS(Hidden)
 class UMachineState_StartWithNotDefaultLabel
 	: public UMachineState_Test

@@ -1,3 +1,5 @@
+// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
 #include "FiniteStateMachineTestObject.h"
 
 #include "FiniteStateMachine/FiniteStateMachine.h"

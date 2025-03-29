@@ -1,12 +1,11 @@
-﻿#pragma once
+﻿// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
+#pragma once
 
 #include "MachineState_Test.h"
 
 #include "MachineState_ExternalPushTest.generated.h"
 
-/**
- *
- */
 UCLASS(Hidden)
 class UMachineState_ExternalPushTest
 	: public UMachineState_Test

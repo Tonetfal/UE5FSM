@@ -1,3 +1,5 @@
+// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
 #include "MachineState_PushPopTest.h"
 
 #include "UE5FSMModule.h"

@@ -1,3 +1,5 @@
+// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
 #pragma once
 
 #include "CoreMinimal.h"

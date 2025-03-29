@@ -1,3 +1,5 @@
+// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
 #include "MachineState_StatesBlocklistTest.h"
 
 UMachineState_StatesBlocklistTest1::UMachineState_StatesBlocklistTest1()

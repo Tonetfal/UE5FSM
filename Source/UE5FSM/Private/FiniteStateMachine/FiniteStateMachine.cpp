@@ -1,4 +1,6 @@
-﻿#include "FiniteStateMachine/FiniteStateMachine.h"
+﻿// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
+#include "FiniteStateMachine/FiniteStateMachine.h"
 
 #include "FiniteStateMachine/FiniteStateMachineLog.h"
 #include "FiniteStateMachine/MachineState.h"

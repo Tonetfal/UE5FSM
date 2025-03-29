@@ -1,4 +1,6 @@
-﻿#include "UE5FSMModule.h"
+﻿// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
+#include "UE5FSMModule.h"
 
 #include "GameplayDebugger.h"
 #include "FiniteStateMachine/Debug/GameplayDebuggerCategory_UE5FSM.h"

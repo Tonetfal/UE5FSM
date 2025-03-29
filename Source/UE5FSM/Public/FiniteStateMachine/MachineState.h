@@ -1,4 +1,6 @@
-﻿#pragma once
+﻿// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
+#pragma once
 
 #include "FiniteStateMachine/FiniteStateMachineTypes.h"
 #include "FiniteStateMachine/GlobalMachineStateInterface.h"

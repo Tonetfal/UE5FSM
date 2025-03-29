@@ -1,3 +1,5 @@
+// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
 #pragma once
 
 #if !WITH_GAMEPLAY_DEBUGGER

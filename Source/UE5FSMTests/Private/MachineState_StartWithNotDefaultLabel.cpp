@@ -1,3 +1,5 @@
+// Author: Antonio Sidenko (Tonetfal). All rights reserved.
+
 #include "MachineState_StartWithNotDefaultLabel.h"
 
 #include "MachineState_PushPopTest.h"
