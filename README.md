@@ -1,6 +1,6 @@
 ﻿# UE5FSM
 
-This is a Finite State Machine (FSM) developed for Unreal Engine 5 that mimics behavior of Unreal Engine's 3 FSM. 
+This is a Finite State Machine (FSM) developed for Unreal Engine 5 that mimics the behavior of Unreal Engine's 3 FSM. 
 The tool is developed with a focus on gameplay logic to facilitate the development of complex behavior.
 
 ## Installation
@@ -8,20 +8,20 @@ The tool is developed with a focus on gameplay logic to facilitate the developme
 Download the release that you wish to use from the [Release](https://github.com/Tonetfal/UE5FSM/releases) page, and copy 
 its Plugins directory into your project's root.
 
-The plugin is dependant on [UE5Coro](https://github.com/landelare/ue5coro). Refer to its documentation for the 
-installation process and other features.
+The plugin is dependent on [UE5Coro](https://github.com/landelare/ue5coro). Refer to its documentation for the 
+installation process and other features. This plugin supports UE5Coro 1, and was tested on 1.10.
 
 ## Description
 
-Finite State Machine is an actor component that is meant to be attached to actors that have a state. You can make 
+Finite State Machine is an actor component meant to be attached to actors that have a state. You can make 
 different logic using that. Each piece of logic has to be built using [machine states](Docs/States.md) and their 
 [labels](Docs/Labels.md). The machine states have a wide range of events and functions to control the logic flow. The 
-machine state always know what state it's in in order to start or abort context dependant logic. Every machine state 
+machine state always knows what state it's to start or abort context-dependent logic. Every machine state 
 can have its unique [data](Docs/StateData.md) object to store its own project-specific data in. There are 
 [tools](Docs/Debug.md) to debug your own finite state machines easily. If those aren't enough, you can always extend 
 them pretty easily by adding more debug information to it.
 
-Read more the plugin in the [documentation](Docs) and in the source code, as it's all well documented.
+Read more about the plugin in the [documentation](Docs) and in the source code, as it's all well documented.
 
 ## Example
 
