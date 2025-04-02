@@ -129,18 +129,18 @@ enum class EStateAction : uint8
  * - Labels are special functions coroutines are meant to be used in, making them a good place to create latent gameplay
  *   code.
  * - To distinguish them from normal functions use "Label_" as a prefix.
- * - They are like mini-states within a single state, but, when a label finishes executing its code, nothing happens
- * automatically afterwards. Labels either have to manage themselves, so that they carry on the logic invocation, or
+ * - They are like mini-states within a single state, but when a label finishes executing its code, nothing happens
+ * automatically afterward. Labels either have to manage themselves, so that they carry on the logic invocation, or
  * something else, like state functions, has to do it instead; it depends on the context.
  *
  * # State data
  * - State data is an object that a particular state has, and it's accessible from outside using the owning state
  * machine to make it easy to expose information other states might need to base their behavior on, or pass some
  * information to this state.
- * - The object is created once on state registration, and destroyes at the end of the state lifecycle.
+ * - The object is created once on state registration, and destroys at the end of the state lifecycle.
  * - To define the subclass of the data object you want to use for a particular state use UMachineState::StateDataClass.
  */
-UCLASS(Abstract, Blueprintable, ClassGroup=("Finite State Machine"))
+UCLASS(Abstract, Blueprintable, BlueprintType, ClassGroup=("Finite State Machine"))
 class UE5FSM_API UMachineState
 	: public UObject
 {
@@ -635,11 +635,11 @@ private:
 
 protected:
 	/** Class defining state data object to create to manage data of this state. */
-	UPROPERTY(EditDefaultsOnly, Category="Data")
+	UPROPERTY(EditDefaultsOnly, Category="Data", meta=(AllowAbstract="False"))
 	TSubclassOf<UMachineStateData> StateDataClass = nullptr;
 
 	/** Machine state classes that cannot be activated using GotoState while this one is the active one. */
-	UPROPERTY(EditDefaultsOnly, Category="State Transition")
+	UPROPERTY(EditDefaultsOnly, Category="State Transition", meta=(AllowAbstract="False"))
 	TArray<TSubclassOf<UMachineState>> StatesBlocklist;
 
 	/** Reference to the base state data object. It's intended to be downcasted to get the subclasses version. */
@@ -665,7 +665,7 @@ private:
 
 	/**
 	 * If true, active label is being activated, false otherwise.
-	 * It prevents users from activating labels while some other is being activated.
+	 * It prevents users from activating labels while some others are being activated.
 	 */
 	bool bIsActivatingLabel = false;
 

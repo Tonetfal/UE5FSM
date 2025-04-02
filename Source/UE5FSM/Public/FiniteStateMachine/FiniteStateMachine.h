@@ -129,13 +129,22 @@ public:
 	UFiniteStateMachine();
 
 	//~UActorComponent Interface
-	virtual void PostReinitProperties() override;
 	virtual void Activate(bool bReset) override;
 	virtual void InitializeComponent() override;
 	virtual void UninitializeComponent() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick LevelTick,
 		FActorComponentTickFunction* ActorComponentTickFunction) override;
+
+#if WITH_EDITOR
+	virtual EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
+#endif
 	//~End of UActorComponent Interface
+
+	/**
+	 * Reset the state machine.
+	 * @param bDeactivate whether the state machine should be deactivated after being cleared up.
+	 */
+	void Reset(bool bDeactivate);
 
 	/**
 	 * Register a given state.
@@ -154,7 +163,7 @@ public:
 	/**
 	 * Set global state the state machine will be in.
 	 * @param	InStateClass global state to be in throughout whole execution.
-	 * @note	Only callable before the initialiation terminates.
+	 * @note	Only callable before the initialization terminates.
 	 */
 	void SetGlobalState(TSubclassOf<UMachineState> InStateClass);
 
@@ -166,8 +175,7 @@ public:
 	 * otherwise do not.
 	 * @return	If true, state has been successfully switched, false otherwise.
 	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
-	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
-	 * GotoState).
+	 * from (if any). It is the caller obligation to call co_return (or not have any code after a successful GotoState).
 	 */
 	bool GotoState(TSubclassOf<UMachineState> InStateClass, FGameplayTag Label = TAG_StateMachine_Label_Default,
 		bool bForceEvents = true);
@@ -176,8 +184,7 @@ public:
 	 * End the active state. If there's any state below this in the stack, it'll resume its execution.
 	 * @return	If true, a state has ended, false otherwise.
 	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
-	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
-	 * EndState).
+	 * from (if any). It is the caller obligation to call co_return (or not have any code after a successful EndState).
 	 */
 	bool EndState();
 
@@ -215,8 +222,7 @@ public:
 	 * Pop the top-most state from stack. If there's any state below this in the stack, it'll resume its execution.
 	 * @return	If true, a state has been popped, false otherwise.
 	 * @note	Unlike Unreal 3, when succeeds, it doesn't interrupt latent code execution the function is called
-	 * from (if any). It is the caller obligation to call co_return (or simply not have any code after a successful
-	 * PopState).
+	 * from (if any). It is the caller obligation to call co_return (or not have any code after a successful PopState).
 	 */
 	bool PopState();
 
@@ -269,8 +275,8 @@ public:
 	 * @param	InStateClass state to check against.
 	 * @param	bCheckStack if true, whole state stack will be used, otherwise only the active state will be checked.
 	 * @return	If true, the state is currently active, false otherwise.
-	 * @note	When checking whole state stack, "active" is treated as "present", i.e. a state can be either executing
-	 * or paused.
+	 * @note	When checking the whole state stack, "active" is treated as "present",
+	 * i.e. a state can be either executing or paused.
 	 */
 	bool IsInState(TSubclassOf<UMachineState> InStateClass, bool bCheckStack = false) const;
 
@@ -283,7 +289,7 @@ public:
 	/**
 	 * Check whether a given state class is registered in this state machine.
 	 * @param	InStateClass state to check against.
-	 * @return	If true, the state is reigstered, false otherwise.
+	 * @return	If true, the state is registered, false otherwise.
 	 */
 	bool IsStateRegistered(TSubclassOf<UMachineState> InStateClass) const;
 
@@ -499,7 +505,7 @@ private:
 	/**
 	 * Remove all latent execution cancel delegates that are no longer bound because the latent execution the delegate
 	 * was associated with has terminated before the user has used it.
-	 * @return	Amount of removed invalid latent execution cancellers.
+	 * @return	Amount of removed invalid latent execution cancelers.
 	 */
 	void ClearStatesInvalidLatentExecutionCancellers();
 
@@ -523,13 +529,16 @@ private:
 	 */
 	bool IsActiveStateDispatchingEvent() const;
 
+	FString GetGlobalStateInInitialRegisteredStatesErrorMessage(TSubclassOf<UMachineState> StateClass) const;
+	FString GetActiveStateNotRegisteredErrorMessage() const;
+
 private:
 	/** Called when a pending push request is completed with any result. */
 	FOnPushRequestResultSignature OnPushRequestResultDelegate;
 
 public:
 	/** All the machine states that will be automatically registered on initialization. */
-	UPROPERTY(EditDefaultsOnly, Category="State Machine")
+	UPROPERTY(EditDefaultsOnly, Category="State Machine", meta=(AllowAbstract="False"))
 	TArray<TSubclassOf<UMachineState>> InitialStateClassesToRegister;
 
 protected:
@@ -551,14 +560,14 @@ protected:
 private:
 	/** Global state the state machine is in. If not specified, it won't have any. */
 	UPROPERTY(EditDefaultsOnly, Category="State Machine",
-		meta=(MustImplement="/Script/UE5FSM.GlobalMachineStateInterface"))
+		meta=(MustImplement="/Script/UE5FSM.GlobalMachineStateInterface", AllowAbstract="False"))
 	TSubclassOf<UMachineState> GlobalStateClass = nullptr;
 
 	/**
 	 * Initial state the state machine starts with. If not specified, it won't have any unless GotoState() is used after
 	 * initialization.
 	 */
-	UPROPERTY(EditDefaultsOnly, Category="State Machine")
+	UPROPERTY(EditDefaultsOnly, Category="State Machine", meta=(AllowAbstract="False"))
 	TSubclassOf<UMachineState> InitialState = nullptr;
 
 	/**

@@ -6,6 +6,7 @@
 #include "FiniteStateMachine/MachineState.h"
 #include "FiniteStateMachine/MachineStateData.h"
 #include "GameFramework/PlayerState.h"
+#include "Misc/DataValidation.h"
 
 using namespace UE5Coro;
 
@@ -44,24 +45,13 @@ UFiniteStateMachine::UFiniteStateMachine()
 	bAutoActivate = true;
 }
 
-void UFiniteStateMachine::PostReinitProperties()
-{
-	Super::PostReinitProperties();
-
-	for (const TSubclassOf<UMachineState> StateClass : InitialStateClassesToRegister)
-	{
-		if (IsValid(StateClass))
-		{
-			ensureMsgf(!StateClass->ImplementsInterface(UGlobalMachineStateInterface::StaticClass()),
-				TEXT("InitialStateClassesToRegister container contains a global machine state [%s]. "
-					"Remove it out of the array as global machine state will be automatically registered if it's "
-					"assigned to the GlobalStateClass"), *StateClass->GetName());
-		}
-	}
-}
-
 void UFiniteStateMachine::Activate(bool bReset)
 {
+	if (bReset)
+	{
+		Reset(false);
+	}
+
 	Super::Activate(bReset);
 
 	const bool bMyIsActive = IsActive();
@@ -124,10 +114,11 @@ void UFiniteStateMachine::InitializeComponent()
 	{
 		if (IsValid(StateClass))
 		{
-			ensureMsgf(!StateClass->ImplementsInterface(UGlobalMachineStateInterface::StaticClass()),
-				TEXT("InitialStateClassesToRegister container contains a global machine state [%s]. "
-					"Remove it out of the array as global machine state will be automatically registered if it's "
-					"assigned to the GlobalStateClass"), *StateClass->GetName());
+			if (!ensureMsgf(!StateClass->ImplementsInterface(UGlobalMachineStateInterface::StaticClass()),
+				TEXT("%s"), *GetGlobalStateInInitialRegisteredStatesErrorMessage(StateClass)))
+			{
+				continue;
+			}
 		}
 
 		RegisterState(StateClass);
@@ -147,7 +138,11 @@ void UFiniteStateMachine::InitializeComponent()
 	if (IsValid(InitialState))
 	{
 		ActiveState = FindStateChecked(InitialState);
-		ActiveState->SetInitialLabel(InitialStateLabel);
+
+		if (ensureMsgf(ActiveState.IsValid(), TEXT("%s"), *GetActiveStateNotRegisteredErrorMessage()))
+		{
+			ActiveState->SetInitialLabel(InitialStateLabel);
+		}
 	}
 
 	Super::InitializeComponent();
@@ -197,6 +192,47 @@ void UFiniteStateMachine::TickComponent(float DeltaTime, ELevelTick LevelTick,
 	if (ActiveState.IsValid())
 	{
 		ActiveState->Tick(DeltaTime);
+	}
+}
+
+#if WITH_EDITOR
+EDataValidationResult UFiniteStateMachine::IsDataValid(FDataValidationContext& Context) const
+{
+	EDataValidationResult Result = Super::IsDataValid(Context);
+
+	for (const TSubclassOf<UMachineState> StateClass : InitialStateClassesToRegister)
+	{
+		if (IsValid(StateClass) && StateClass->ImplementsInterface(UGlobalMachineStateInterface::StaticClass()))
+		{
+			const FString Description = GetGlobalStateInInitialRegisteredStatesErrorMessage(StateClass);
+			Context.AddError(FText::FromString(Description));
+			Result = EDataValidationResult::Invalid;
+		}
+	}
+
+	if (IsValid(InitialState))
+	{
+		const int32 FoundIndex = InitialStateClassesToRegister.Find(InitialState);
+		if (FoundIndex == INDEX_NONE)
+		{
+			const FString Description = GetActiveStateNotRegisteredErrorMessage();
+			Context.AddError(FText::FromString(Description));
+			Result = EDataValidationResult::Invalid;
+		}
+	}
+
+	return Result;
+}
+#endif
+
+void UFiniteStateMachine::Reset(bool bDeactivate)
+{
+	StopEveryLatentExecution();
+	ClearStack();
+
+	if (bDeactivate)
+	{
+		Deactivate();
 	}
 }
 
@@ -686,7 +722,7 @@ int32 UFiniteStateMachine::StopEveryLatentExecution()
 
 int32 UFiniteStateMachine::StopEveryRunningLabel()
 {
-	int32 StoppedLabels  = 0;
+	int32 StoppedLabels = 0;
 	for (const TObjectPtr<UMachineState> State : RegisteredStates)
 	{
 		StoppedLabels += State->StopRunningLabels();
@@ -1227,10 +1263,10 @@ bool UFiniteStateMachine::IsTransitionBlockedTo(TSubclassOf<UMachineState> InSta
 	}
 
 	const bool bIsBlocking = ActiveState->StatesBlocklist.ContainsByPredicate(
-		[InStateClass] (const TSubclassOf<UMachineState> Item)
- 		{
- 			return InStateClass->IsChildOf(Item);
- 		});
+		[InStateClass](const TSubclassOf<UMachineState> Item)
+		{
+			return InStateClass->IsChildOf(Item);
+		});
 
 	return bIsBlocking;
 }
@@ -1250,4 +1286,24 @@ bool UFiniteStateMachine::CanActiveStateSafelyDeactivate(FString& OutReason) con
 bool UFiniteStateMachine::IsActiveStateDispatchingEvent() const
 {
 	return ActiveState.IsValid() && ActiveState->IsDispatchingEvent();
+}
+
+FString UFiniteStateMachine::GetGlobalStateInInitialRegisteredStatesErrorMessage(
+	TSubclassOf<UMachineState> StateClass) const
+{
+	const FString Description = FString::Printf(
+		TEXT("InitialStateClassesToRegister contains a global machine state [%s]. Remove it out of the array.\n"
+			"GlobalStateClass will be automatically registered in the state machine."),
+		*StateClass->GetName());
+
+	return Description;
+}
+
+FString UFiniteStateMachine::GetActiveStateNotRegisteredErrorMessage() const
+{
+	const FString Description = FString::Printf(
+		TEXT("Specified InitialState [%s] is not present in InitialStateClassesToRegister.\n"
+			"Either change it or add it to InitialStateClassesToRegister."), *InitialState->GetName());
+
+	return Description;
 }
