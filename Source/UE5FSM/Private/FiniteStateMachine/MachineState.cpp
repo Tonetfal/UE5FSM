@@ -354,16 +354,38 @@ void UMachineState::OnStateAction(EStateAction StateAction, TSubclassOf<UMachine
 	{
 		FMS_IsDispatchingEventManager Guard(this);
 
-		FSM_LOG(Log, "[%s] has been [%s].", *GetName(), *UEnum::GetValueAsString(StateAction));
-
 		switch (StateAction)
 		{
-		case EStateAction::Begin:	OnBegan(StateClass); break;
-		case EStateAction::End:		OnEnded(StateClass); break;
-		case EStateAction::Push:	OnPushed(StateClass); break;
-		case EStateAction::Pop:		OnPopped(StateClass); break;
-		case EStateAction::Resume:	OnResumed(StateClass); break;
-		case EStateAction::Pause:	OnPaused(StateClass); break;
+		case EStateAction::Begin:
+			FSM_VLOG(Log, "[%s] has began.", *GetName());
+			OnBegan(StateClass);
+			break;
+
+		case EStateAction::End:
+			FSM_VLOG(Log, "[%s] has ended.", *GetName());
+			OnEnded(StateClass);
+			break;
+
+		case EStateAction::Push:
+			FSM_VLOG(Log, "[%s] was pushed.", *GetName());
+			OnPushed(StateClass);
+			break;
+
+		case EStateAction::Pop:
+			FSM_VLOG(Log, "[%s] was popped.", *GetName());
+			OnPopped(StateClass);
+			break;
+
+		case EStateAction::Resume:
+			FSM_VLOG(Log, "[%s] was resumed.", *GetName());
+			OnResumed(StateClass);
+			break;
+
+		case EStateAction::Pause:
+			FSM_VLOG(Log, "[%s] was paused.", *GetName());
+			OnPaused(StateClass);
+			break;
+
 		default: checkNoEntry();
 		}
 
