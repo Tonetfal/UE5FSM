@@ -278,12 +278,23 @@ public:
 	 * @note	When checking the whole state stack, "active" is treated as "present",
 	 * i.e. a state can be either executing or paused.
 	 */
+	UFUNCTION(BlueprintPure, Category="Finite State Machine")
 	bool IsInState(TSubclassOf<UMachineState> InStateClass, bool bCheckStack = false) const;
+
+	/**
+	 * Check whether active state allows to transit to given state.
+	 * @param	InStateClass state to check the transition for.
+	 * @return	If true, transition is allowed, false otherwise.
+	 */
+	bool IsTransitionBlockedTo(TSubclassOf<UMachineState> InStateClass) const;
+	bool IsStateCurrentlyBlocklisted(TSubclassOf<UMachineState> InStateClass) const;
+	bool IsStateCurrentlyAllowlisted(TSubclassOf<UMachineState> InStateClass) const;
 
 	/**
 	 * Get class of the active normal state.
 	 * @return	Class of the active normal state.
 	 */
+	UFUNCTION(BlueprintPure, Category="Finite State Machine")
 	TSubclassOf<UMachineState> GetActiveStateClass() const;
 
 	/**
@@ -291,6 +302,7 @@ public:
 	 * @param	InStateClass state to check against.
 	 * @return	If true, the state is registered, false otherwise.
 	 */
+	UFUNCTION(BlueprintPure, Category="Finite State Machine")
 	bool IsStateRegistered(TSubclassOf<UMachineState> InStateClass) const;
 
 	/**
@@ -298,6 +310,7 @@ public:
 	 * @param	InStateClass state class to search retrieve.
 	 * @return	State of the given class. Might be nullptr.
 	 */
+	UFUNCTION(BlueprintPure, Category="Finite State Machine", meta=(DeterminesOutputType="InStateClass"))
 	UMachineState* GetState(TSubclassOf<UMachineState> InStateClass) const;
 
 	/**
@@ -328,6 +341,7 @@ public:
 	 * @param	InStateDataClass state data type to search for.
 	 * @return	State data. May be nullptr.
 	 */
+	UFUNCTION(BlueprintPure, Category="Finite State Machine", meta=(DeterminesOutputType="InStateDataClass"))
 	UMachineStateData* GetStateData(TSubclassOf<UMachineState> InStateClass,
 		TSubclassOf<UMachineStateData> InStateDataClass) const;
 
@@ -372,6 +386,7 @@ public:
 	 * @return	Physical actor. If failed to find the avatar, owner will be returned instead.
 	 * @note	Supports only Controller and PlayerState.
 	 */
+	UFUNCTION(BlueprintPure, Category="Finite State Machine")
 	AActor* GetAvatar() const;
 
 	/**
@@ -510,13 +525,6 @@ private:
 	void ClearStatesInvalidLatentExecutionCancellers();
 
 	/**
-	 * Check whether active state allows to transit to given state.
-	 * @param	InStateClass state to check the transition for.
-	 * @return	If true, transition is allowed, false otherwise.
-	 */
-	bool IsTransitionBlockedTo(TSubclassOf<UMachineState> InStateClass) const;
-
-	/**
 	 * Check whether active state can be safely deactived.
 	 * @param	OutReason output parameter. The reason it cannot deactivate if so.
 	 * @return	If true, it can safely deactivate, false otherwise.
@@ -543,16 +551,16 @@ public:
 
 protected:
 	/** All the registered states. */
-	UPROPERTY(VisibleInstanceOnly, Category="State Machine|Debug")
+	UPROPERTY(Transient, VisibleInstanceOnly, Category="State Machine|Debug")
 	TArray<TObjectPtr<UMachineState>> RegisteredStates;
 
 	/** Active global state. */
-	UPROPERTY(VisibleInstanceOnly, Category="State Machine|Debug")
-	TWeakObjectPtr<UMachineState> ActiveGlobalState = nullptr;
+	UPROPERTY(Transient, VisibleInstanceOnly, Category="State Machine|Debug")
+	TObjectPtr<UMachineState> ActiveGlobalState = nullptr;
 
 	/** Active normal state. */
-	UPROPERTY(VisibleInstanceOnly, Category="State Machine|Debug")
-	TWeakObjectPtr<UMachineState> ActiveState = nullptr;
+	UPROPERTY(Transient, VisibleInstanceOnly, Category="State Machine|Debug")
+	TObjectPtr<UMachineState> ActiveState = nullptr;
 
 	/** Machine states stack. The top-most is the active one, while all the others are paused. */
 	TArray<TSubclassOf<UMachineState>> StatesStack;
@@ -602,6 +610,8 @@ private:
 	 * another one, false otherwise.
 	 */
 	bool bIsRunningLatentRequest = false;
+
+	bool bIsInitialized = false;
 };
 
 template<typename UserClass>

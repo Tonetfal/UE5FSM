@@ -222,12 +222,12 @@ int32 UMachineState::StopRunningLabels()
 
 int32 UMachineState::ClearInvalidLatentExecutionCancellers()
 {
-	const int32 RemovedEntries = RunningLatentExecutions.RemoveAll([this](const FLatentExecution& Item)
+	const int32 RemovedEntries = RunningLatentExecutions.RemoveAll([this](const TSharedPtr<FLatentExecution>& Item)
 	{
-		if (!Item.CancelDelegate.IsBound())
+		if (!Item->CancelDelegate.IsBound())
 		{
 			FSM_LOG(VeryVerbose, "Secondary coroutine [%s] in state [%s] has been cleared up as it has finished the "
-				"execution.", *Item.DebugData, *GetName());
+				"execution.", *Item->DebugData, *GetName());
 			return true;
 		}
 
@@ -262,24 +262,30 @@ void UMachineState::StopLatentExecution_Custom(int32 StoppedCoroutines)
 int32 UMachineState::StopLatentExecution_Implementation()
 {
 	int32 StoppedCoroutines = 0;
-	for (FLatentExecution& LatentExecution : RunningLatentExecutions)
+	if (!RunningLatentExecutions.IsEmpty())
 	{
-		if (LatentExecution.CancelDelegate.ExecuteIfBound())
+		for (TSharedPtr<FLatentExecution> LatentExecution : RunningLatentExecutions)
 		{
-			FSM_LOG(VeryVerbose, "Secondary coroutine [%s] in state [%s] has been cancelled.",
-				*LatentExecution.DebugData, *GetName());
+			check(LatentExecution.IsValid());
 
-			StoppedCoroutines++;
+			if (LatentExecution->CancelDelegate.ExecuteIfBound())
+			{
+				FSM_LOG(VeryVerbose, "Secondary coroutine [%s] in state [%s] has been cancelled.",
+					*LatentExecution->DebugData, *GetName());
+
+				LatentExecution->CancelDelegate.Unbind();
+				StoppedCoroutines++;
+			}
 		}
-	}
 
-	if (StoppedCoroutines > 0)
-	{
-		FSM_LOG(Verbose, "All [%d] running secondary coroutines in state [%s] have been cancelled.",
-			StoppedCoroutines, *GetName());
-	}
+		if (StoppedCoroutines > 0)
+		{
+			FSM_LOG(Verbose, "All [%d] running secondary coroutines in state [%s] have been cancelled.",
+				StoppedCoroutines, *GetName());
+		}
 
-	RunningLatentExecutions.Empty();
+		RunningLatentExecutions.Empty();
+	}
 
 	// Allow users to do some custom clean up
 	StopLatentExecution_Custom(StoppedCoroutines);
@@ -304,11 +310,11 @@ void UMachineState::Tick(float DeltaSeconds)
 			// Disallow editing the active label
 			bIsActivatingLabel = true;
 
+			FSM_LOG(Verbose, "State [%s] Label [%s] is being activated.",
+				*GetClass()->GetName(), *ActiveLabel.ToString());
+
 			const auto Coroutine = LabelFunction.Execute();
 			RunningLabels.Add({ Coroutine, ActiveLabel.GetTagName().ToString() });
-
-			FSM_LOG(Verbose, "State [%s] Label [%s] has been activated.",
-				*GetClass()->GetName(), *ActiveLabel.ToString());
 
 			// Re-allow editing the active label
 			bIsActivatingLabel = false;
@@ -319,6 +325,11 @@ void UMachineState::Tick(float DeltaSeconds)
 void UMachineState::Initialize()
 {
 	CreateStateData();
+}
+
+void UMachineState::PostInitialize()
+{
+	// Empty
 }
 
 UMachineStateData* UMachineState::CreateStateData()

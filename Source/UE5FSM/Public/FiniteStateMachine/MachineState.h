@@ -96,8 +96,8 @@ UE5FSM_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_StateMachine_Label_Default);
  * Utility macro to use to pass functions with templated parameters or defaulted parameters you're not willing to change.
  *
  * Example:
- * - LatentExecution(LIFT(AI::AIMoveTo), Controller, Vector);
- * - LatentExecution(LIFT(AI::AIMoveTo), Controller, Actor);
+ * - LatentExecution(LIFT(UE5Coro::UE5FSM::AI::AIMoveTo), Controller, Vector);
+ * - LatentExecution(LIFT(UE5Coro::UE5FSM::AI::AIMoveTo), Controller, Actor);
  */
 #define LIFT(FUNCTION) [this] <typename... TArgs> (TArgs&&... Args) { return FUNCTION(Forward<TArgs>(Args)...); }
 
@@ -431,6 +431,11 @@ protected:
 	virtual void Initialize();
 
 	/**
+	 * Initialize the state after the finite state machine has finished initializing everything.
+	 */
+	virtual void PostInitialize();
+
+	/**
 	 * Create persistant state data.
 	 */
 	virtual UMachineStateData* CreateStateData();
@@ -475,7 +480,7 @@ protected:
 	 * Example:
 	 * - co_await RunLatentExecution(Latent::NextTick);
 	 * - co_await RunLatentExecution(Latent::Seconds, 5.0);
-	 * - co_await RunLatentExecution(LIFT(AI::AIMoveTo), Controller, Actor);
+	 * - co_await RunLatentExecution(LIFT(UE5Coro::UE5FSM::AI::AIMoveTo), Controller, Actor);
 	 *
 	 * @param	Function latent function to execute. Result must be co_awaitable.
 	 * @param	Args arguments to pass.
@@ -489,6 +494,10 @@ protected:
 
 private:
 	FString GetDebugString(const FString& RunLatentExecutionExt) const;
+
+	template<typename TFunction, typename... TArgs>
+	UE5Coro::TCoroutine<> RunLatentExecution_Function(TFunction Function, TArgs&&... Args);
+	UE5Coro::TCoroutine<> RunLatentExecution_ExternalCancellation(FSimpleDelegate& Delegate);
 
 public:
 	/**
@@ -638,8 +647,20 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="Data", meta=(AllowAbstract="False"))
 	TSubclassOf<UMachineStateData> StateDataClass = nullptr;
 
+	/** If true, StatesAllowlist will be used. */
+	UPROPERTY(EditDefaultsOnly, Category="State Transition")
+	bool bUseAllowlist = false;
+
+	/** The only machine state classes that can be activated using GotoState while this one is the active one. */
+	UPROPERTY(EditDefaultsOnly, Category="State Transition", meta=(AllowAbstract="False", EditCondition="bUseAllowList"))
+	TArray<TSubclassOf<UMachineState>> StatesAllowlist;
+
+	/** If true, StatesBlocklist will be used. */
+	UPROPERTY(EditDefaultsOnly, Category="State Transition")
+	bool bUseBlocklist = true;
+
 	/** Machine state classes that cannot be activated using GotoState while this one is the active one. */
-	UPROPERTY(EditDefaultsOnly, Category="State Transition", meta=(AllowAbstract="False"))
+	UPROPERTY(EditDefaultsOnly, Category="State Transition", meta=(AllowAbstract="False", EditCondition="bUseBlockList"))
 	TArray<TSubclassOf<UMachineState>> StatesBlocklist;
 
 	/** Reference to the base state data object. It's intended to be downcasted to get the subclasses version. */
@@ -670,12 +691,12 @@ private:
 	bool bIsActivatingLabel = false;
 
 	/** Fired when user wants to cancel all non-label latent executions, such as Sleep, AIMoveTo and others. */
-	TArray<FLatentExecution> RunningLatentExecutions;
+	TArray<TSharedPtr<FLatentExecution>> RunningLatentExecutions;
 
 	/** If true, the object has been destroyed, false otherwise. */
 	bool bIsDestroyed = false;
 
-	/** Last state action that took place. Is used for debug purposes. */
+	/** Last state action that took place. It's used for debug purposes. */
 	EStateAction LastStateAction = EStateAction::None;
 
 	/** Time the last state action took place. */
@@ -691,27 +712,44 @@ UE5Coro::TCoroutine<> UMachineState::RunLatentExecution(TFunction Function, TArg
 	return RunLatentExecutionExt(Function, "", Forward<TArgs>(Args)...);
 }
 
+namespace UE5FSM::Private
+{
+    template <typename>
+	struct TIsCoroutine : std::false_type { };
+
+    template<typename T>
+    struct TIsCoroutine<UE5Coro::TCoroutine<T>> : std::true_type { };
+}
+
+template<typename T>
+inline constexpr bool TIsCoroutine = UE5FSM::Private::TIsCoroutine<T>::value;
+
 template<typename TFunction, typename ... TArgs>
 UE5Coro::TCoroutine<> UMachineState::RunLatentExecutionExt(TFunction Function, FString DebugInfo, TArgs&&... Args)
 {
 	// Wrap this coroutine in a custom way to support custom cancellation
-	FLatentExecution& LatentExecutionWrapper = RunningLatentExecutions.AddDefaulted_GetRef();
+	TSharedPtr<FLatentExecution> LatentExecutionWrapper = MakeShared<FLatentExecution>();
+	RunningLatentExecutions.Add(LatentExecutionWrapper);
 
 	// Save debug data
-	LatentExecutionWrapper.DebugData = DebugInfo;
+	LatentExecutionWrapper->DebugData = DebugInfo;
 
 #ifdef FSM_EXTREME_VERBOSITY
 	UE_LOG(LogFiniteStateMachine, VeryVerbose, TEXT("%s"), *GetDebugString(LatentExecutionWrapper.DebugData));
 #endif
 
-	// Allow user to cancel an awaiter
-	auto Cancelling = UE5Coro::Latent::UntilDelegate(LatentExecutionWrapper.CancelDelegate);
-
-	// Create the asked awaiter
-	auto LatentExecution = Function(Forward<TArgs>(Args)...);
+    auto LatentExecution = UE5Coro::TCoroutine<>::CompletedCoroutine;
+	if constexpr (TIsCoroutine<decltype(Function(Forward<TArgs>(Args)...))>)
+	{
+		LatentExecution = Function(Forward<TArgs>(Args)...);
+	}
+	else
+	{
+		LatentExecution = RunLatentExecution_Function(Function, Forward<TArgs>(Args)...);
+	}
 
 	// Wait until either the latent execution terminates or we're explicitly cancelled
-	co_await UE5Coro::WhenAny(MoveTemp(LatentExecution), MoveTemp(Cancelling));
+	co_await Race(LatentExecution, RunLatentExecution_ExternalCancellation(LatentExecutionWrapper->CancelDelegate));
 
 	// Wait until the state becomes active (if not already) or invalid
 	co_await UE5Coro::Latent::Until([this]
@@ -724,6 +762,19 @@ UE5Coro::TCoroutine<> UMachineState::RunLatentExecutionExt(TFunction Function, F
 		return IsStateActive();
 	});
 
+	co_await UE5Coro::FinishNowIfCanceled();
+}
+
+template<typename TFunction, typename ... TArgs>
+UE5Coro::TCoroutine<> UMachineState::RunLatentExecution_Function(TFunction Function, TArgs&&... Args)
+{
+	co_await Function(Forward<TArgs>(Args)...);
+	co_await UE5Coro::FinishNowIfCanceled();
+}
+
+inline UE5Coro::TCoroutine<> UMachineState::RunLatentExecution_ExternalCancellation(FSimpleDelegate& Delegate)
+{
+	co_await UE5Coro::Latent::UntilDelegate(Delegate);
 	co_await UE5Coro::FinishNowIfCanceled();
 }
 
