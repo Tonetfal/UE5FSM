@@ -9,7 +9,8 @@ Download the release that you wish to use from the [Release](https://github.com/
 its contents into your project's Plugins directory.
 
 The plugin is dependent on [UE5Coro](https://github.com/landelare/ue5coro). Refer to its documentation for the 
-installation process and other features. This plugin supports UE5Coro 1, and was tested on 1.10.
+installation process and other features. This plugin supports UE5Coro 2, and was tested on 2.1. It should be 
+compatible with UE5Coro 1.10, at least for 1.4.0-alpha release.
 
 ## Description
 
@@ -98,7 +99,7 @@ void AMyAIController::OnPossess(APawn* InPawn)
 TCoroutine<> USeekingState::Label_Default()
 {
 	// Walk to a target
-	RUN_LATENT_EXECUTION(AI::AIMoveTo, GetOwner<AAIController>(), GetTarget());
+	RUN_LATENT_EXECUTION(UE5Coro::UE5FSM::AI::AIMoveTo, GetOwner<AAIController>(), GetTarget());
 	
 	// Upon reaching the target push the attacking state to harm it
 	PUSH_STATE(UAttackingState);
